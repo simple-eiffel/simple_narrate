@@ -32,7 +32,7 @@ the widget *inventory* but not the widget *rendering path*.*
 | Every widget the mockup uses | `src/widgets/` | present, **but as native `EV_*` wraps** — recolourable, not re-chromable (§7) |
 | Canvas → screen path | `sv_cairo_canvas.e` renders to an offscreen surface, then `copy_surface_to_drawing_area` blits into an `EV_DRAWING_AREA` | verified — and reusable for row pixmaps (§7, Layer 1) |
 | Takes table substrate | `sv_data_grid.e:2` — *"wraps EV_GRID"*, `EV_GRID_COLUMN` / `EV_GRID_LABEL_ITEM` in use | the EV_GRID binding already exists in-tree |
-| **Text measurement** | — | ⚠ **absent.** `simple_cairo` wraps `select_font` / `set_font_size` / `show_text` only; `grep extents` returns nothing. **No wrapping layout can be written without it.** §7, Layer 0. |
+| **Text measurement** | `cairo_context.e:445,456` | ⚠ **partial — corrected 2026-08-21 by the S09 pass.** `text_width` / `text_height` exist (draft 2's "grep extents returns nothing" was literally true, substantively misleading). Still absent and still blocking: `x_advance` (the layout number — width excludes trailing whitespace and shifts with bearings), full extents, and `font_extents` for baselines/line height. Specified: `simple_cairo/specs/S09-LAYER0-EXPANSION.md`. |
 | Private font loading | — | ⚠ absent — no `AddFontResource*` anywhere in `simple_vision` or `simple_cairo`. §7, Layer 1. |
 
 ⚠ **Also not found:** any shadow primitive in the Cairo canvas. The mockup's only
