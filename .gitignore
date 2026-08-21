@@ -36,3 +36,6 @@ installer/output/
 # Scratch captures from manual testing. Same shape as a real run's output
 # folder, and regenerated whenever the app is exercised.
 test_output/
+EIFGENs/
+*.log
+narrate_first_frame.png

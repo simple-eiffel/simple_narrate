@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-23-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-23-0 http://www.eiffel.com/developers/xml/configuration-1-23-0.xsd" name="simple_narrate" uuid="7B4E9D02-51C6-4F83-A9D7-0E62B8C4F317" library_target="simple_narrate">
+	<description>Block-by-block narration editor: essay in, approved narrated audio out. Two gates - the number and the ear.</description>
+
+	<target name="simple_narrate">
+		<root all_classes="true"/>
+		<file_rule>
+			<exclude>/EIFGENs$</exclude>
+			<exclude>/\..*$</exclude>
+			<exclude>/spike$</exclude>
+			<exclude>/docs$</exclude>
+		</file_rule>
+		<option warning="warning">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="dead_code_removal" value="feature"/>
+		<capability>
+			<concurrency support="scoop" use="thread"/>
+			<void_safety support="all"/>
+		</capability>
+		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
+		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf"/>
+		<library name="simple_cairo" location="$SIMPLE_EIFFEL/simple_cairo/simple_cairo.ecf"/>
+		<external_include location="$(SIMPLE_EIFFEL)/simple_narrate/narrate_gui"/>
+		<cluster name="narrate_gui" location=".\narrate_gui\" recursive="true"/>
+	</target>
+
+	<target name="narrate" extends="simple_narrate">
+		<root class="NARRATE_GUI" feature="make"/>
+		<setting name="console_application" value="false"/>
+	</target>
+</system>
