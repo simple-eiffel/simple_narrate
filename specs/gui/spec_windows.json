@@ -1,0 +1,348 @@
+{
+  "app": {
+    "name": "simple_narrate",
+    "title": "simple_narrate",
+    "version": "0.1.0-spec",
+    "description": "Block-by-block narration editor. Two independent gates: round-trip fidelity and human approval. Phase 2 GUI over the session model in specs/spec.md."
+  },
+
+  "design_principles": [
+    "Compound block state reads as ONE thing: a severity stripe plus one chip, never five icons.",
+    "The map rail makes 200 blocks comprehensible at a glance; it is the primary navigation.",
+    "Publish never greys out silently - it always names what is blocking it (spec 18.8 is_publishable).",
+    "Splitting takes a caret, not a selection; the tool draws the preview so a mis-selection cannot occur (spec 8.4).",
+    "Synthesis runs in a detached worker and is polled. The event loop is never blocked (ocr_engine.e precedent).",
+    "Warnings never block. sentences_over_limit and splits_mid_sentence are queries, not preconditions (spec 18.4)."
+  ],
+
+  "windows": [
+    {
+      "id": "main_window",
+      "type": "window",
+      "title": "simple_narrate",
+      "size": { "width": 1440, "height": 900 },
+      "min_size": { "width": 1100, "height": 680 },
+      "layout": {
+        "type": "vertical",
+        "padding": 0,
+        "spacing": 0,
+        "children": [
+
+          {
+            "type": "toolbar",
+            "id": "main_toolbar",
+            "children": [
+              { "type": "text", "id": "session_title", "content": "The Day Yahweh Looked Defeated", "font_size": 14, "font_weight": "bold" },
+              { "type": "text", "id": "session_meta", "content": "chatterbox · andrew · gate 0.95", "font_size": 11, "style": "muted" },
+              { "type": "separator", "orientation": "vertical" },
+              { "type": "toolbar_button", "id": "undo_btn", "label": "Undo", "shortcut": "Ctrl+Z", "enabled_when": "session.can_undo" },
+              { "type": "toolbar_button", "id": "redo_btn", "label": "Redo", "shortcut": "Ctrl+Y", "enabled_when": "session.can_redo" },
+              { "type": "separator", "orientation": "vertical" },
+              { "type": "toolbar_button", "id": "render_dirty_btn", "label": "Render Dirty", "enabled_when": "session.dirty_count > 0" },
+              { "type": "toolbar_button", "id": "run_gate_btn", "label": "Run Gate", "enabled_when": "session.all_rendered" },
+              { "type": "spacer" },
+              {
+                "type": "button",
+                "id": "publish_btn",
+                "label": "Publish",
+                "style": "primary",
+                "enabled_when": "session.is_publishable",
+                "blocked_reason_binding": "session.publish_blocker_text",
+                "note": "Never a bare grey button. When disabled the label area carries the reason, e.g. '12 unapproved · fidelity 0.87'."
+              }
+            ]
+          },
+
+          {
+            "type": "splitter",
+            "id": "main_splitter",
+            "orientation": "horizontal",
+            "sizes": [ 88, 820, 380 ],
+            "children": [
+
+              {
+                "type": "column",
+                "id": "map_rail",
+                "width": 88,
+                "spacing": 6,
+                "padding": 8,
+                "children": [
+                  { "type": "text", "content": "MAP", "font_size": 10, "style": "label" },
+                  {
+                    "type": "list",
+                    "id": "block_map",
+                    "render_mode": "cells",
+                    "cell_size": { "width": 18, "height": 18 },
+                    "columns": 3,
+                    "binding": "session.blocks",
+                    "cell_color_by": "block.state",
+                    "tooltip": "block.ordinal + ' - ' + block.state",
+                    "note": "One cell per block. 200 blocks fit without scrolling. Click scrolls the list. This is how the whole essay stays comprehensible."
+                  },
+                  { "type": "spacer" },
+                  { "type": "text", "id": "map_legend", "content": "approved / rendered / dirty / failed", "font_size": 9, "style": "muted" }
+                ]
+              },
+
+              {
+                "type": "scroll_area",
+                "id": "block_list_scroll",
+                "children": [
+                  {
+                    "type": "column",
+                    "id": "block_list",
+                    "spacing": 10,
+                    "padding": 16,
+                    "binding": "session.blocks",
+                    "item_template": {
+                      "type": "card",
+                      "id": "block_card",
+                      "severity_stripe_binding": "block.state",
+                      "children": [
+                        {
+                          "type": "row",
+                          "spacing": 8,
+                          "children": [
+                            { "type": "text", "binding": "block.ordinal", "font_size": 11, "style": "label" },
+                            { "type": "text", "binding": "block.kind", "font_size": 10, "style": "chip" },
+                            { "type": "text", "binding": "block.state_label", "font_size": 10, "style": "chip" },
+                            { "type": "text", "binding": "block.fidelity", "font_size": 11, "style": "tabular" },
+                            { "type": "text", "binding": "block.warning_summary", "font_size": 10, "style": "warning", "visible_when": "block.has_warnings" },
+                            { "type": "spacer" },
+                            { "type": "progress_bar", "id": "block_progress", "indeterminate": true, "visible_when": "block.is_rendering" }
+                          ]
+                        },
+                        {
+                          "type": "text_field",
+                          "id": "block_text",
+                          "multiline": true,
+                          "binding": "block.text",
+                          "auto_height": true,
+                          "split_preview": {
+                            "enabled": true,
+                            "trigger": "caret_position",
+                            "tint_above": "split_upper",
+                            "tint_below": "split_lower",
+                            "note": "The caret is the input; the tint is the tool's output. No selection is ever required, so a mis-selection cannot occur."
+                          },
+                          "on_change": "session.edit_text (block, value)"
+                        },
+                        {
+                          "type": "row",
+                          "spacing": 6,
+                          "children": [
+                            { "type": "button", "id": "play_btn", "label": "Play", "enabled_when": "block.has_render" },
+                            { "type": "button", "id": "new_take_btn", "label": "New Take", "tooltip": "Re-roll the seed. Same text, different reading." },
+                            { "type": "button", "id": "approve_btn", "label": "Approve", "enabled_when": "block.has_render and not block.is_approved" },
+                            { "type": "separator", "orientation": "vertical" },
+                            { "type": "button", "id": "split_btn", "label": "Split Here", "enabled_when": "block.caret_inside", "tooltip": "Splits at the caret. Warns but does not block on a mid-sentence point." },
+                            { "type": "button", "id": "move_up_btn", "label": "Up", "tooltip": "Free - no re-render (spec 8.2)" },
+                            { "type": "button", "id": "move_down_btn", "label": "Down", "tooltip": "Free - no re-render (spec 8.2)" },
+                            { "type": "spacer" },
+                            { "type": "dropdown", "id": "kind_select", "binding": "block.kind", "options": [ "prose", "heading", "separator" ], "tooltip": "Pacing only. Costs zero re-renders (spec 8.6)." }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+
+              {
+                "type": "column",
+                "id": "detail_panel",
+                "width": 380,
+                "padding": 14,
+                "spacing": 12,
+                "children": [
+                  {
+                    "type": "card",
+                    "id": "takes_card",
+                    "title": "Takes",
+                    "children": [
+                      {
+                        "type": "data_grid",
+                        "id": "takes_grid",
+                        "columns": [
+                          { "id": "n",        "label": "#",        "width": 32 },
+                          { "id": "seed",     "label": "Seed",     "width": 84 },
+                          { "id": "fidelity", "label": "Fidelity", "width": 72 },
+                          { "id": "wpm",      "label": "WPM",      "width": 56 },
+                          { "id": "chosen",   "label": "",         "width": 28 }
+                        ],
+                        "binding": "selected_block.takes",
+                        "sortable": true,
+                        "note": "A set to choose from, with the gate's measurements attached - not a linear history stack (spec 17.7)."
+                      }
+                    ]
+                  },
+                  {
+                    "type": "card",
+                    "id": "params_card",
+                    "title": "Parameters",
+                    "children": [
+                      { "type": "slider",   "id": "exaggeration", "label": "Exaggeration", "min": 0.0, "max": 1.0, "step": 0.05, "binding": "selected_block.params.exaggeration" },
+                      { "type": "spin_box", "id": "seed_field",   "label": "Seed", "min": 1, "max": 4294967295, "binding": "selected_block.seed" },
+                      { "type": "text", "content": "Changing either re-renders this block.", "font_size": 10, "style": "muted" }
+                    ]
+                  },
+                  {
+                    "type": "card",
+                    "id": "gate_card",
+                    "title": "Gate",
+                    "children": [
+                      { "type": "text", "id": "fid_value",  "binding": "selected_block.fidelity", "font_size": 22, "font_weight": "bold", "style": "tabular" },
+                      { "type": "text", "content": "round-trip fidelity", "font_size": 10, "style": "muted" },
+                      { "type": "separator" },
+                      { "type": "text", "id": "pace",       "binding": "selected_block.words_per_minute", "font_size": 12, "style": "tabular" },
+                      { "type": "text", "id": "longest_run","binding": "selected_block.longest_unbroken_run", "font_size": 12, "style": "tabular" },
+                      { "type": "text", "id": "boundary_silence", "binding": "selected_block.boundary_silence_ms", "font_size": 12, "style": "tabular" },
+                      { "type": "separator" },
+                      {
+                        "type": "list",
+                        "id": "warnings_list",
+                        "binding": "selected_block.warnings",
+                        "style": "warning",
+                        "note": "Warnings only. None of these blocks any action - they are queries, not preconditions (spec 18.4)."
+                      }
+                    ]
+                  },
+                  {
+                    "type": "card",
+                    "id": "lexicon_card",
+                    "title": "Lexicon",
+                    "children": [
+                      { "type": "text", "id": "unproven", "binding": "session.unproven_in_block", "font_size": 11, "style": "warning" },
+                      { "type": "button", "id": "search_respelling_btn", "label": "Search Respellings", "tooltip": "Generates candidates and round-trips each until one survives. Unattended (spec 17.3)." }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+
+          {
+            "type": "status_bar",
+            "id": "status_strip",
+            "children": [
+              { "type": "text", "id": "worker_state",  "binding": "render_queue.status_text" },
+              { "type": "progress_bar", "id": "queue_progress", "binding": "render_queue.fraction", "width": 160 },
+              { "type": "separator", "orientation": "vertical" },
+              { "type": "text", "id": "overall_fidelity", "binding": "session.fidelity", "style": "tabular" },
+              { "type": "text", "id": "unapproved_count", "binding": "session.unapproved_count" },
+              { "type": "spacer" },
+              { "type": "text", "id": "saved_indicator", "content": "saved", "style": "muted", "note": "Always 'saved'. The session invariant `persisted` means an unsaved state cannot exist (spec 18.2)." }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "mid_sentence_warning_dialog",
+      "type": "dialog",
+      "title": "Split inside a sentence?",
+      "size": { "width": 460, "height": 200 },
+      "modal": true,
+      "layout": {
+        "type": "vertical",
+        "padding": 16,
+        "spacing": 12,
+        "children": [
+          { "type": "text", "content": "This split point is inside a sentence. Both halves will take sentence-final intonation, and it will probably sound wrong.", "wrap": true },
+          { "type": "text", "id": "nearest_boundary", "binding": "split.nearest_sentence_boundary_hint", "style": "muted" },
+          {
+            "type": "row",
+            "spacing": 8,
+            "children": [
+              { "type": "spacer" },
+              { "type": "button", "id": "snap_btn",   "label": "Snap to Sentence" },
+              { "type": "button", "id": "anyway_btn", "label": "Split Anyway", "style": "primary" },
+              { "type": "button", "id": "cancel_btn", "label": "Cancel" }
+            ]
+          }
+        ]
+      },
+      "note": "Warns, never blocks. 'Split Anyway' is the primary action because the author's cadence is the author's call (spec 18.4)."
+    }
+  ],
+
+  "state_machines": [
+    {
+      "id": "block_state",
+      "initial": "new",
+      "states": [
+        { "id": "new",       "description": "Created or split. No render exists for the current hash." },
+        { "id": "dirty",     "description": "Text, params, seed or applied lexicon changed. Cached render is stale." },
+        { "id": "queued",    "description": "Waiting for the detached render worker." },
+        { "id": "rendering", "description": "Worker is synthesising. UI stays live; progress polled." },
+        { "id": "rendered",  "description": "Audio exists for the current hash. Not yet listened to." },
+        { "id": "approved",  "description": "approved_take.hash = content_hash." },
+        { "id": "failed",    "description": "Engine returned an error. last_error is non-empty." }
+      ],
+      "transitions": [
+        { "from": "new",       "to": "queued",    "event": "render",         "guard": "engine.is_available" },
+        { "from": "dirty",     "to": "queued",    "event": "render",         "guard": "engine.is_available" },
+        { "from": "queued",    "to": "rendering", "event": "worker_started" },
+        { "from": "rendering", "to": "rendered",  "event": "worker_succeeded", "guard": "duration_plausible" },
+        { "from": "rendering", "to": "failed",    "event": "worker_failed" },
+        { "from": "failed",    "to": "queued",    "event": "retry" },
+        { "from": "rendered",  "to": "approved",  "event": "approve" },
+        { "from": "rendered",  "to": "queued",    "event": "new_take",       "note": "Re-roll the seed. The prior take stays cached." },
+        { "from": "approved",  "to": "dirty",     "event": "content_hash_changed",
+          "note": "NOT a command. This transition is the class invariant approval_is_definitional firing. Nothing has to remember to clear approval - is_approved is defined as approved_take.hash = content_hash, so editing un-approves automatically (spec 18.1)." },
+        { "from": "rendered",  "to": "dirty",     "event": "content_hash_changed" }
+      ]
+    },
+    {
+      "id": "session_state",
+      "initial": "empty",
+      "states": [
+        { "id": "empty",       "description": "No essay imported." },
+        { "id": "importing",   "description": "Parsing markdown, converting bold/italic to !emphasis!." },
+        { "id": "ready",       "description": "Blocks exist. Editing permitted." },
+        { "id": "rendering",   "description": "One or more blocks queued or rendering." },
+        { "id": "gating",      "description": "Transcribing blocks back and measuring." },
+        { "id": "holding",     "description": "Gate ran; not publishable. essay.HOLD.mp3 written." },
+        { "id": "publishable", "description": "Every block approved AND fidelity >= gate_threshold." }
+      ],
+      "transitions": [
+        { "from": "empty",       "to": "importing",   "event": "import_essay", "guard": "not source.is_stub" },
+        { "from": "importing",   "to": "ready",       "event": "parsed" },
+        { "from": "ready",       "to": "rendering",   "event": "render_dirty", "guard": "dirty_count > 0" },
+        { "from": "rendering",   "to": "ready",       "event": "queue_drained" },
+        { "from": "ready",       "to": "gating",      "event": "run_gate",     "guard": "all_rendered" },
+        { "from": "gating",      "to": "publishable", "event": "gate_done",    "guard": "is_publishable" },
+        { "from": "gating",      "to": "holding",     "event": "gate_done",    "guard": "not is_publishable" },
+        { "from": "holding",     "to": "ready",       "event": "edit_any_block" },
+        { "from": "publishable", "to": "ready",       "event": "edit_any_block",
+          "note": "Any edit drops out of publishable, because the edited block un-approves itself." }
+      ]
+    }
+  ],
+
+  "validation": [
+    {
+      "id": "publish_guard",
+      "kind": "validation",
+      "expression": "every_block_approved and fidelity >= gate_threshold",
+      "surfaced_as": "publish_btn.blocked_reason_binding",
+      "note": "A VALIDATION, not a contract. Assertions do not survive ec.sh release into the lean binary, so this must be an evaluated query in every build (spec 18.8)."
+    },
+    { "id": "not_a_stub",        "kind": "validation", "expression": "not source.is_stub",           "surfaced_as": "import dialog error" },
+    { "id": "respell_slots",     "kind": "validation", "expression": "no_unfilled_respell_slots",    "surfaced_as": "lexicon_card.unproven" },
+    { "id": "sentence_length",   "kind": "warning",    "expression": "sentences_over_limit (block)", "surfaced_as": "warnings_list", "blocking": false },
+    { "id": "mid_sentence_split","kind": "warning",    "expression": "splits_mid_sentence (block, caret)", "surfaced_as": "mid_sentence_warning_dialog", "blocking": false }
+  ],
+
+  "concurrency": {
+    "pattern": "detached_worker_with_polling",
+    "rationale": "Synthesis takes seconds to tens of seconds and would freeze a Vision2 event loop. Precedent: simple_ocr_capture/src/ocr_engine.e, whose note records OCR calls exceeding 45 seconds on a cold model load.",
+    "ui_obligations": [
+      "Per-block indeterminate progress while rendering.",
+      "Status strip shows queue depth and worker liveness.",
+      "Editing other blocks stays available during a render.",
+      "Cancelling a render leaves the block dirty, never half-rendered."
+    ]
+  }
+}
