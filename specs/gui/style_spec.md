@@ -255,6 +255,13 @@ all if that is what gets us to Eiffel having a better / more-modern GUI
 capacity."* This is ecosystem option 2 — extend into modernity — applied to the
 foundation rather than the leaves.
 
+**Scope statement (Larry, same day): *"A simple_cairo that I can use for
+anything on a native Windows PC."*** General-purpose 2D, not a GUI-only
+dependency: one API whose identical drawing calls paint a live window, write a
+PNG, or lay out a PDF page — GUIs, report generators, chart renderers, image
+pipelines. The narrate GUI is the forcing consumer, not the boundary of the
+ambition.
+
 ⚠ **With the §8.3.1 sequencing rule attached:** the expansion is *driven by what
 `SV_BLOCK_EDITOR` and `SV_BLOCK_LIST` demand*, with simple_narrate as the
 forcing consumer. "Wrap all of Cairo" in the abstract is how `simple_voice`
