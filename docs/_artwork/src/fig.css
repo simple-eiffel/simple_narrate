@@ -1,0 +1,113 @@
+/* simple_narrate figure harness — shared app skin.
+   Single-theme by design: these render to PNG for sharing, so they commit to
+   one look rather than following a viewer's theme. Contrast is computed by
+   render.py, never eyeballed. */
+
+/* Fonts are VENDORED, not fetched. A render must not depend on a CDN being
+   reachable — same principle as the essay protocol's _fonts/ directory. */
+@font-face{font-family:"Archivo";src:url("_fonts/Archivo.ttf") format("truetype");font-weight:100 900;font-display:block}
+@font-face{font-family:"Literata";src:url("_fonts/Literata.ttf") format("truetype");font-weight:100 900;font-display:block}
+@font-face{font-family:"IBM Plex Mono";src:url("_fonts/IBMPlexMono.ttf") format("truetype");font-weight:400;font-display:block}
+
+:root {
+  --app-bg:#E9ECF1; --app-panel:#FFFFFF; --app-bar:#F5F7FA;
+  --app-line:#D3DAE3; --app-text:#1A2029; --app-dim:#5A6573;
+
+  --blue:#1F5FA8;   --blue-wash:#C7DAF1;
+  --green:#1D6B52;  --green-wash:#E0F0E9;
+  --amber:#8A5A0B;  --amber-wash:#FAF1DD;
+  --signal:#AF3A22; --signal-wash:#F8E7E2;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Literata",Georgia,serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--app-bg);
+  font-family:var(--f-display);
+  color:var(--app-text);
+  font-size:12px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.stage{padding:20px}
+
+/* --- figure furniture --- */
+.fig-cap{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--app-dim);margin:0 0 12px}
+.fig-note{font-family:var(--f-mono);font-size:11px;color:var(--app-dim);margin:12px 0 0}
+.fig-note b{color:var(--signal);font-weight:600}
+
+/* --- window chrome --- */
+.screen{background:var(--app-bg);border:1px solid var(--app-line);border-radius:5px;overflow:hidden}
+.tbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--app-bar);border-bottom:1px solid var(--app-line)}
+.tbar .ttl{font-weight:700;font-size:13px}
+.tbar .meta{color:var(--app-dim);font-family:var(--f-mono);font-size:10.5px}
+.vsep{width:1px;height:18px;background:var(--app-line)}
+.tb{padding:4px 9px;border:1px solid var(--app-line);border-radius:3px;background:var(--app-panel);font-size:11px;white-space:nowrap}
+.tb.off{color:var(--app-dim);opacity:.55}
+.grow{flex:1}
+.pub{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:3px;background:var(--signal-wash);border:1px solid var(--signal);color:var(--signal);font-size:11px;font-weight:600;white-space:nowrap}
+.pub .why{font-family:var(--f-mono);font-weight:400;font-size:10px}
+
+.cols{display:grid;grid-template-columns:88px 1fr 300px}
+.rail{background:var(--app-bar);border-right:1px solid var(--app-line);padding:9px 8px}
+.rail-l{font-family:var(--f-mono);font-size:9px;letter-spacing:.12em;color:var(--app-dim);margin-bottom:7px}
+.cells{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.cell{aspect-ratio:1;border-radius:2px}
+.c-app{background:var(--green)} .c-ren{background:var(--blue)}
+.c-dty{background:var(--amber)} .c-new{background:var(--app-line)}
+.c-fail{background:var(--signal)}
+.cell.here{outline:2px solid var(--app-text);outline-offset:1px}
+.rail-k{margin-top:10px;font-family:var(--f-mono);font-size:8.5px;line-height:1.7;color:var(--app-dim)}
+.rail-k i{display:inline-block;width:7px;height:7px;border-radius:1px;margin-right:4px}
+
+.list{padding:12px;display:flex;flex-direction:column;gap:9px;background:var(--app-bg)}
+.blk{background:var(--app-panel);border:1px solid var(--app-line);border-left:4px solid var(--app-line);border-radius:3px;padding:9px 11px}
+.blk.s-app{border-left-color:var(--green)} .blk.s-ren{border-left-color:var(--blue)}
+.blk.s-dty{border-left-color:var(--amber)} .blk.s-fail{border-left-color:var(--signal)}
+.blk.sel{box-shadow:0 0 0 2px var(--blue)}
+.bhead{display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+.ord{font-family:var(--f-mono);font-size:10px;color:var(--app-dim)}
+.chip{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:2px;border:1px solid var(--app-line);color:var(--app-dim)}
+.chip.k-app{background:var(--green-wash);border-color:var(--green);color:var(--green)}
+.chip.k-ren{background:var(--blue-wash);border-color:var(--blue);color:var(--blue)}
+.chip.k-dty{background:var(--amber-wash);border-color:var(--amber);color:var(--amber)}
+.chip.k-fail{background:var(--signal-wash);border-color:var(--signal);color:var(--signal)}
+.fid{font-family:var(--f-mono);font-size:11px;font-variant-numeric:tabular-nums}
+.warnx{font-family:var(--f-mono);font-size:9.5px;color:var(--amber)}
+.btxt{font-family:var(--f-body);font-size:12px;line-height:1.55;color:var(--app-text)}
+.btxt .em{font-weight:600}
+.hi-up{background:var(--blue-wash);box-shadow:0 0 0 2px var(--blue-wash)}
+.hi-dn{background:var(--amber-wash);box-shadow:0 0 0 2px var(--amber-wash)}
+.caret{display:inline-block;width:3px;height:1em;background:var(--signal);vertical-align:text-bottom;margin:0 1px}
+.bacts{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.ba{padding:3px 8px;border:1px solid var(--app-line);border-radius:3px;background:var(--app-bar);font-size:10.5px}
+.ba.off{color:var(--app-dim);opacity:.5}
+.ba.pri{border-color:var(--blue);color:var(--blue);background:var(--blue-wash)}
+.spin{font-family:var(--f-mono);font-size:9.5px;color:var(--blue);white-space:nowrap}
+
+.det{background:var(--app-bar);border-left:1px solid var(--app-line);padding:11px;display:flex;flex-direction:column;gap:10px}
+.dcard{background:var(--app-panel);border:1px solid var(--app-line);border-radius:3px;padding:9px 10px}
+.dt{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--app-dim);margin-bottom:7px}
+.tk{display:grid;grid-template-columns:16px 1fr 42px 38px 14px;gap:5px;font-family:var(--f-mono);font-size:10px;padding:3px 0;border-bottom:1px solid var(--app-line);font-variant-numeric:tabular-nums}
+.tk.hd{color:var(--app-dim);font-size:9px}
+.tk.on{color:var(--green);font-weight:600}
+.big{font-family:var(--f-mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.sub{font-size:9.5px;color:var(--app-dim);font-family:var(--f-mono)}
+.mrow{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;padding:2px 0;font-variant-numeric:tabular-nums}
+.mrow b{font-weight:600}
+.mrow.bad b{color:var(--amber)}
+.slid{height:4px;border-radius:2px;background:var(--app-line);position:relative;margin:7px 0 3px}
+.slid::after{content:"";position:absolute;left:70%;top:-3px;width:10px;height:10px;border-radius:50%;background:var(--blue)}
+.wl{font-family:var(--f-mono);font-size:9.5px;color:var(--amber);line-height:1.6}
+
+.sbar{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--app-bar);border-top:1px solid var(--app-line);font-family:var(--f-mono);font-size:10px;color:var(--app-dim)}
+.pbar{width:130px;height:5px;border-radius:3px;background:var(--app-line);overflow:hidden}
+.pbar i{display:block;height:100%;width:26%;background:var(--blue)}
+
+/* --- callout annotations --- */
+.ann{position:absolute;font-family:var(--f-mono);font-size:10.5px;color:var(--signal);display:flex;align-items:center;gap:6px}
+.ann .dot{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;background:var(--app-panel);flex:none}
+.rel{position:relative}

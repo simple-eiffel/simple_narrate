@@ -1,0 +1,156 @@
+<title>fig-01 editor window</title>
+<link rel="stylesheet" href="fig.css">
+<body>
+<div class="stage">
+<div class="screen">
+
+  <div class="tbar">
+    <span class="ttl">The Day Yahweh Looked Defeated</span>
+    <span class="meta">chatterbox · andrew · gate 0.95</span>
+    <span class="vsep"></span>
+    <span class="tb">Undo</span>
+    <span class="tb off">Redo</span>
+    <span class="vsep"></span>
+    <span class="tb">Render Dirty (12)</span>
+    <span class="tb off">Run Gate</span>
+    <span class="grow"></span>
+    <span class="pub">Publish <span class="why">blocked · 12 unapproved · fidelity 0.87</span></span>
+  </div>
+
+  <div class="cols">
+
+    <div class="rail">
+      <div class="rail-l">MAP</div>
+      <div class="cells">
+        <div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app"></div>
+        <div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app here"></div><div class="cell c-dty"></div>
+        <div class="cell c-ren"></div><div class="cell c-ren"></div><div class="cell c-app"></div><div class="cell c-app"></div>
+        <div class="cell c-app"></div><div class="cell c-dty"></div><div class="cell c-dty"></div><div class="cell c-ren"></div>
+        <div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-fail"></div>
+        <div class="cell c-ren"></div><div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-dty"></div>
+        <div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-ren"></div><div class="cell c-app"></div>
+        <div class="cell c-dty"></div><div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app"></div>
+        <div class="cell c-app"></div><div class="cell c-ren"></div><div class="cell c-app"></div><div class="cell c-dty"></div>
+        <div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-app"></div><div class="cell c-new"></div>
+        <div class="cell c-new"></div><div class="cell c-new"></div><div class="cell c-new"></div><div class="cell c-new"></div>
+      </div>
+      <div class="rail-k">
+        <i class="c-app"></i>approved<br>
+        <i class="c-ren"></i>rendered<br>
+        <i class="c-dty"></i>dirty<br>
+        <i class="c-fail"></i>failed<br>
+        <i class="c-new"></i>new
+      </div>
+    </div>
+
+    <div class="list">
+
+      <div class="blk s-app">
+        <div class="bhead">
+          <span class="ord">07</span><span class="chip">heading</span>
+          <span class="chip k-app">approved</span><span class="fid">0.98</span>
+        </div>
+        <div class="btxt">The Day Yahweh Looked Defeated</div>
+        <div class="bacts">
+          <span class="ba">▶ Play</span><span class="ba">↻ New Take</span><span class="ba off">✓ Approved</span>
+          <span class="vsep"></span>
+          <span class="ba off">Split Here</span><span class="ba">↑</span><span class="ba">↓</span>
+        </div>
+      </div>
+
+      <div class="blk s-dty sel">
+        <div class="bhead">
+          <span class="ord">08</span><span class="chip">prose</span>
+          <span class="chip k-dty">dirty</span><span class="fid">—</span>
+          <span class="warnx">⚠ 60-word sentence</span>
+        </div>
+        <div class="btxt"><span class="hi-up">And he’s smart about it, too. He doesn’t overreach. He doesn’t claim the whole Bible is <span class="em">!one long lie!</span>.</span><span class="caret"></span><span class="hi-dn">He does the thing that actually works on thoughtful people, which is to say: I’m not asking you to distrust the text. I’m asking you to read it more honestly than your <span class="em">!pastor!</span> does.</span></div>
+        <div class="bacts">
+          <span class="ba off">▶ Play</span><span class="ba">↻ New Take</span><span class="ba off">✓ Approve</span>
+          <span class="vsep"></span>
+          <span class="ba pri">Split Here</span><span class="ba">↑</span><span class="ba">↓</span>
+        </div>
+      </div>
+
+      <div class="blk s-ren">
+        <div class="bhead">
+          <span class="ord">09</span><span class="chip">prose</span>
+          <span class="chip k-ren">rendered</span><span class="fid">0.94</span>
+          <span class="grow"></span><span class="spin">take 2 rendering</span>
+        </div>
+        <div class="btxt">He points at the stone, then at 2 Kings 3, then back at the stone, and he lets the two of them argue with each other while <span class="em">!he!</span> stands off to the side looking reasonable.</div>
+        <div class="bacts">
+          <span class="ba">▶ Play</span><span class="ba">↻ New Take</span><span class="ba pri">✓ Approve</span>
+          <span class="vsep"></span>
+          <span class="ba">Split Here</span><span class="ba">↑</span><span class="ba">↓</span>
+        </div>
+      </div>
+
+      <div class="blk s-fail">
+        <div class="bhead">
+          <span class="ord">10</span><span class="chip">separator</span>
+          <span class="chip k-fail">failed</span><span class="fid">—</span>
+          <span class="warnx">engine: CUDA out of memory</span>
+        </div>
+        <div class="btxt">The Leash · The Day Yahweh Looked Defeated · And One Called Mercy</div>
+        <div class="bacts">
+          <span class="ba pri">Retry</span><span class="ba off">▶ Play</span><span class="ba off">✓ Approve</span>
+          <span class="vsep"></span>
+          <span class="ba">Split Here</span><span class="ba">↑</span><span class="ba">↓</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="det">
+      <div class="dcard">
+        <div class="dt">Takes</div>
+        <div class="tk hd"><span>#</span><span>SEED</span><span>FID</span><span>WPM</span><span></span></div>
+        <div class="tk on"><span>1</span><span>4417822</span><span>0.94</span><span>142</span><span>✓</span></div>
+        <div class="tk"><span>2</span><span>9902551</span><span>0.91</span><span>168</span><span></span></div>
+        <div class="tk"><span>3</span><span>1180347</span><span>0.94</span><span>131</span><span></span></div>
+      </div>
+
+      <div class="dcard">
+        <div class="dt">Parameters</div>
+        <div class="sub">exaggeration</div>
+        <div class="slid"></div>
+        <div class="mrow"><span>seed</span><b>4417822</b></div>
+        <div class="sub" style="margin-top:6px">changing either re-renders this block</div>
+      </div>
+
+      <div class="dcard">
+        <div class="dt">Gate</div>
+        <div class="big">0.94</div>
+        <div class="sub">round-trip fidelity</div>
+        <div style="height:8px"></div>
+        <div class="mrow"><span>pace</span><b>142 wpm</b></div>
+        <div class="mrow bad"><span>longest run</span><b>22.4 s</b></div>
+        <div class="mrow"><span>boundary silence</span><b>410 ms</b></div>
+        <div style="height:8px"></div>
+        <div class="wl">⚠ 60-word sentence<br>⚠ unbroken run over 20 s</div>
+      </div>
+
+      <div class="dcard">
+        <div class="dt">Lexicon</div>
+        <div class="wl">2 unproven: Mesha, Chemosh</div>
+        <div class="bacts" style="margin-top:7px"><span class="ba pri">Search Respellings</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sbar">
+    <span>rendering 3 of 12</span>
+    <span class="pbar"><i></i></span>
+    <span class="vsep"></span>
+    <span>worker alive · pid 8841</span>
+    <span class="vsep"></span>
+    <span>overall 0.87</span><span>12 unapproved</span>
+    <span class="grow"></span>
+    <span>saved</span>
+  </div>
+
+</div>
+</div>
+</body>
