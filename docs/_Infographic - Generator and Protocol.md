@@ -34,10 +34,14 @@ would otherwise have been lost:
 | Recessive rules, hairlines | 1 px in `--app-line` |
 | Text wears text ink | Accent colours carry state, never captions |
 
-⚠ **Where argument graphics are still the right answer:** the conceptual figures
-for the writeups — the two gates, the cost model, the six reversals — are claims,
-not interfaces. Those should be built in Pillow in the essay-series style. This
-protocol covers the interface figures only.
+⚠ **Both kinds now live in the one script.** Screenshots (figure 01) render
+through headless Edge because their subject is a layout; argument graphics
+(figures 02–04) are Pillow-composed because their subject is a claim — one
+argument made visible per figure, per the essay-series principle. They share the
+token palette and the vendored fonts, and both pass through the same contrast
+gate. One deliberate difference from the essay series: **no film grain** — that
+texture belonged to the night-corridor world; this subject's world is clean
+drafting paper, and flat is the identity.
 
 ---
 
@@ -76,12 +80,12 @@ deliberate.
 
 ## Deliverables
 
-| File | The one thing it shows |
-|---|---|
-| `01-editor-window.png` | The whole surface at scale. Four blocks in four different states, the map rail carrying the rest of the essay, and Publish naming its own blocker rather than greying out. |
-| `02-block-anatomy.png` | *(planned)* One block card enlarged, every element labelled to the specification clause behind it. |
-| `03-block-states.png` | *(planned)* The seven block states — and the one transition that has no button, because it is a class invariant firing. |
-| `04-split-preview.png` | *(planned)* Caret in, two tints out. Why the tool draws the boundary instead of asking the author to select it. |
+| File | Kind | The one argument it makes |
+|---|---|---|
+| `01-editor-window.png` | screenshot (Edge) | The whole surface at scale. Four blocks in four states, the map rail carrying the rest of the essay, and Publish naming its own blocker rather than greying out. |
+| `02-one-stripe-one-chip.png` | argument (Pillow) | Five state facts collapse to a stripe and a word — why two hundred rows stay scannable. |
+| `03-transition-no-button.png` | argument (Pillow) | `approved → dirty` has no handler. It is the definitional invariant firing, typeset beside the arrow it drives. |
+| `04-caret-not-selection.png` | argument (Pillow) | The caret is the input; the highlight is the tool's output. The mis-selection failure cannot occur because no selection is ever made. |
 
 ---
 
@@ -114,3 +118,12 @@ invisible in greyscale or to a reader with colour-vision deficiency. Retuned to
 
 That is the whole case for computing contrast instead of eyeballing it, and it
 happened on figure one.
+
+**2026-08-21 — figures 02–04 (Pillow argument graphics).** Second defect caught
+by looking rather than trusting: variable-font axes were passed **by guessed
+position** (`[wdth, wght]`), and every Archivo headline rendered Thin-Expanded —
+the axes had landed in the wrong slots. Fixed by matching values to the font's
+own `fvar` table **by axis name**, never by position; `masthead` also gained
+shrink-to-fit so a true-bold headline can never overrun the margin. Rule for
+this file: after any font change, *view* the render — a clean exit code says
+nothing about weight.
