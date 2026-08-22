@@ -1,10 +1,11 @@
 note
 	description: "[
-		The narrate editor shell - the reference render (docs/_artwork/
+		The narrate editor - the reference render (docs/_artwork/
 		01-editor-window.png) drawn live by simple_cairo through the pure
-		Win32 pump, no Vision2. Static composition first: every token,
-		type family and layout metric of specs/gui/style_spec.md, painted
-		by the same stack that ships simple_ocr_capture 1.8.0.
+		Win32 pump, no Vision2, and now INTERACTIVE: a real text engine
+		with caret, selection (click, drag, double-click word, shift and
+		arrows), live split-preview tint at the caret, and block actions
+		(Split Here, Approve, Up, Down) on a dynamic block model.
 
 		The window keeps to the LEFT HALF of the desktop by construction:
 		the capture rig owns the right half while it reads.
@@ -28,6 +29,7 @@ feature {NONE} -- Window metrics
 	Status_h: REAL_64 = 36.0
 	Rail_w: REAL_64 = 100.0
 	Right_w: REAL_64 = 455.0
+	Line_h: REAL_64 = 26.0
 
 feature {NONE} -- Tokens (style_spec section 2, verbatim - do not retune)
 
@@ -74,10 +76,22 @@ feature {NONE} -- Initialization
 		do
 			create cairo.make
 			create ev_buf.make (16)
+			create blocks.make (8)
+			create btn_zones.make (40)
+			create text_zones.make (8)
+			create lay_x.make (400)
+			create lay_adv.make (400)
+			create lay_line.make (400)
+			create bold_flags.make (400)
 			log_line ({STRING_32} "narrate shell starting")
 			load_fonts
+			seed_blocks
 			offscreen := cairo.create_surface (Win_w, Win_h)
 			create ctx.make (offscreen)
+			focused := 2
+			caret := 103
+			sel_anchor := caret
+			build_layout
 			render
 			if offscreen.write_png ({STRING_32} "narrate_first_frame.png") then
 				log_line ({STRING_32} "first frame written")
@@ -100,7 +114,7 @@ feature {NONE} -- Initialization
 					until
 						ev = 0
 					loop
-						handle_event (ev)
+						handle_event (ev, ev_buf.read_integer_32 (4), ev_buf.read_integer_32 (8))
 						ev := c_next_event (ev_buf.item)
 					end
 				end
@@ -110,66 +124,598 @@ feature {NONE} -- Initialization
 			offscreen.destroy
 		end
 
-	handle_event (a_type: INTEGER)
+	seed_blocks
+		local
+			b: NARRATE_BLOCK
 		do
-			if a_type = 6 then
+			create b.make (7, {STRING_32} "HEADING", {STRING_32} "APPROVED", {STRING_32} "0.98",
+				{STRING_32} "", {STRING_32} "The Day Yahweh Looked Defeated")
+			blocks.extend (b)
+			create b.make (8, {STRING_32} "PROSE", {STRING_32} "DIRTY", {STRING_32} "",
+				{STRING_32} "60-word sentence",
+				{STRING_32} "And he%/8217/s smart about it, too. He doesn%/8217/t overreach. He doesn%/8217/t claim the whole Bible is !one long lie!. He does the thing that actually works on thoughtful people, which is to say: I%/8217/m not asking you to distrust the text. I%/8217/m asking you to read it more honestly than your !pastor! does.")
+			blocks.extend (b)
+			create b.make (9, {STRING_32} "PROSE", {STRING_32} "RENDERED", {STRING_32} "0.94",
+				{STRING_32} "",
+				{STRING_32} "He points at the stone, then at 2 Kings 3, then back at the stone, and he lets the two of them argue with each other while !he! stands off to the side looking reasonable.")
+			blocks.extend (b)
+			create b.make (10, {STRING_32} "SEPARATOR", {STRING_32} "FAILED", {STRING_32} "",
+				{STRING_32} "engine: CUDA out of memory",
+				{STRING_32} "The Leash %/183/ The Day Yahweh Looked Defeated %/183/ And One Called Mercy")
+			blocks.extend (b)
+		end
+
+feature {NONE} -- Event handling
+
+	handle_event (a_type, a_x, a_y: INTEGER)
+		do
+			inspect a_type
+			when 2 then
+				on_click (a_x, a_y)
+			when 3 then
+				on_char (a_x)
+			when 4 then
+				on_key (a_x)
+			when 6 then
 				blit
+			when 8 then
+				on_double_click (a_x, a_y)
+			when 9 then
+				on_drag (a_x, a_y)
+			when 10 then
+				dragging := False
+			else
 			end
 		end
 
-	load_fonts
-			-- FR_PRIVATE loads: the vendored families become selectable by
-			-- name for this process only. Falls back silently per family -
-			-- the log records which ones actually arrived.
+	on_click (a_x, a_y: INTEGER)
 		local
-			dirs: ARRAY [STRING_32]
-			d: STRING_32
 			i: INTEGER
-			f: RAW_FILE
-			ok: INTEGER
+			hit: BOOLEAN
 		do
-			dirs := <<
-				{STRING_32} "D:\prod\simple_narrate\fonts\",
-				{STRING_32} "fonts\">>
 			from
-				i := dirs.lower
+				i := 1
 			until
-				i > dirs.upper or fonts_loaded
+				i > btn_zones.count or hit
 			loop
-				d := dirs [i]
-				create f.make_with_name (d + {STRING_32} "Archivo.ttf")
-				if f.exists then
-					ok := add_font (d + {STRING_32} "Archivo.ttf")
-						+ add_font (d + {STRING_32} "Literata.ttf")
-						+ add_font (d + {STRING_32} "IBMPlexMono.ttf")
-					fonts_loaded := ok = 3
-					log_line ({STRING_32} "fonts from " + d + {STRING_32} ": " + ok.out + {STRING_32} "/3")
+				if attached btn_zones.i_th (i) as z and then
+					a_x >= z.x and then a_x <= z.x + z.w and then a_y >= z.y and then a_y <= z.y + z.h
+				then
+					hit := True
+					do_action (z.action, z.block)
 				end
 				i := i + 1
 			end
-			if not fonts_loaded then
-				log_line ({STRING_32} "fonts NOT loaded - falling back to system faces")
+			from
+				i := 1
+			until
+				i > text_zones.count or hit
+			loop
+				if attached text_zones.i_th (i) as z and then
+					a_x >= z.x and then a_x <= z.x + z.w and then a_y >= z.y and then a_y <= z.y + z.h
+				then
+					hit := True
+					if focused /= z.block then
+						focused := z.block
+						build_layout
+					end
+					caret := offset_at (a_x, a_y)
+					sel_anchor := caret
+					dragging := True
+					refresh
+				end
+				i := i + 1
 			end
 		end
 
-	add_font (a_path: STRING_32): INTEGER
-		local
-			s8: STRING_8
-			cs: C_STRING
+	on_drag (a_x, a_y: INTEGER)
 		do
-			s8 := a_path.to_string_8
-			create cs.make (s8)
-			if c_add_font (cs.item) > 0 then
-				Result := 1
+			if dragging and focused > 0 then
+				caret := offset_at (a_x, a_y)
+				refresh
 			end
 		end
 
-	fonts_loaded: BOOLEAN
+	on_double_click (a_x, a_y: INTEGER)
+			-- Select the word under the point.
+		local
+			c, lo, hi, n: INTEGER
+			t: STRING_32
+		do
+			if focused > 0 then
+				t := blocks.i_th (focused).text
+				n := t.count
+				c := offset_at (a_x, a_y)
+				if n > 0 then
+					lo := c.max (1).min (n)
+					hi := lo
+					from
+					until
+						lo <= 1 or else t.item (lo - 1) = ' '
+					loop
+						lo := lo - 1
+					end
+					from
+					until
+						hi >= n or else t.item (hi + 1) = ' '
+					loop
+						hi := hi + 1
+					end
+					sel_anchor := lo - 1
+					caret := hi
+					dragging := False
+					refresh
+					log_line ({STRING_32} "word selected: " + t.substring (lo, hi))
+				end
+			end
+		end
+
+	on_char (a_code: INTEGER)
+		local
+			b: NARRATE_BLOCK
+			t: STRING_32
+		do
+			if focused > 0 then
+				b := blocks.i_th (focused)
+				t := b.text
+				if a_code = 8 then
+					if has_selection then
+						delete_selection
+					elseif caret > 0 then
+						t.remove (caret)
+						caret := caret - 1
+						sel_anchor := caret
+					end
+					b.mark_dirty
+					edited
+				elseif a_code >= 32 then
+					if has_selection then
+						delete_selection
+						t := b.text
+					end
+					t.insert_character (a_code.to_character_32, caret + 1)
+					caret := caret + 1
+					sel_anchor := caret
+					b.mark_dirty
+					edited
+				end
+			end
+		end
+
+	on_key (a_vk: INTEGER)
+		local
+			b: NARRATE_BLOCK
+			n: INTEGER
+			ext: BOOLEAN
+			cl, cx_line: INTEGER
+			cx: REAL_64
+		do
+			if focused > 0 then
+				b := blocks.i_th (focused)
+				n := b.text.count
+				ext := c_shift_down = 1
+				inspect a_vk
+				when 37 then -- LEFT
+					caret := (caret - 1).max (0)
+				when 39 then -- RIGHT
+					caret := (caret + 1).min (n)
+				when 36 then -- HOME
+					cl := caret_line
+					caret := line_start (cl)
+				when 35 then -- END
+					cl := caret_line
+					caret := line_end (cl)
+				when 38 then -- UP
+					cl := caret_line
+					if cl > 0 then
+						cx := caret_x
+						caret := offset_on_line (cl - 1, cx)
+					end
+				when 40 then -- DOWN
+					cl := caret_line
+					if cl < lay_lines - 1 then
+						cx := caret_x
+						caret := offset_on_line (cl + 1, cx)
+					end
+				when 46 then -- DELETE
+					if has_selection then
+						delete_selection
+						b.mark_dirty
+						edited
+					elseif caret < n then
+						b.text.remove (caret + 1)
+						b.mark_dirty
+						edited
+					end
+					cx_line := 0
+				else
+				end
+				if a_vk /= 46 then
+					if not ext then
+						sel_anchor := caret
+					end
+					refresh
+				end
+			end
+		end
+
+	do_action (a_action, a_block: INTEGER)
+		do
+			inspect a_action
+			when 4 then
+				do_split (a_block)
+			when 5 then
+				do_move (a_block, -1)
+			when 6 then
+				do_move (a_block, 1)
+			when 3 then
+				if blocks.i_th (a_block).state.same_string ("RENDERED") then
+					blocks.i_th (a_block).set_state ({STRING_32} "APPROVED")
+					log_line ({STRING_32} "approved block " + blocks.i_th (a_block).ordinal.out)
+					refresh
+				end
+			when 7 then
+				blocks.i_th (a_block).set_state ({STRING_32} "DIRTY")
+				log_line ({STRING_32} "retry queued for block " + blocks.i_th (a_block).ordinal.out)
+				refresh
+			when 1 then
+				log_line ({STRING_32} "play requested (engine not wired)")
+			when 2 then
+				log_line ({STRING_32} "new take requested (engine not wired)")
+			else
+			end
+		end
+
+	do_split (a_block: INTEGER)
+			-- Split the block at the caret. Takes a caret, not a
+			-- selection - the spec's design principle. Warns, never
+			-- blocks, on a mid-sentence point.
+		local
+			b, nb: NARRATE_BLOCK
+			left, right: STRING_32
+			n: INTEGER
+		do
+			if a_block = focused and focused > 0 then
+				b := blocks.i_th (focused)
+				n := b.text.count
+				if caret > 0 and caret < n then
+					left := b.text.substring (1, caret)
+					right := b.text.substring (caret + 1, n)
+					left.prune_all_trailing (' ')
+					right.prune_all_leading (' ')
+					if not left.is_empty and then left.item (left.count) /= '.' then
+						log_line ({STRING_32} "warning: split lands mid-sentence (allowed)")
+					end
+					b.set_text (left)
+					b.mark_dirty
+					create nb.make (b.ordinal + 1, b.kind.twin, {STRING_32} "DIRTY",
+						{STRING_32} "", {STRING_32} "", right)
+					blocks.go_i_th (focused)
+					blocks.put_right (nb)
+					renumber
+					caret := left.count
+					sel_anchor := caret
+					build_layout
+					refresh
+					log_line ({STRING_32} "split block " + b.ordinal.out + " at " + caret.out)
+				else
+					log_line ({STRING_32} "split needs the caret inside the text")
+				end
+			else
+				log_line ({STRING_32} "split acts on the focused block")
+			end
+		end
+
+	do_move (a_block, a_delta: INTEGER)
+			-- Free - no re-render (spec 8.2): order changes nothing
+			-- about any block's audio.
+		local
+			j: INTEGER
+		do
+			j := a_block + a_delta
+			if j >= 1 and j <= blocks.count then
+				blocks.go_i_th (a_block)
+				blocks.swap (j)
+				renumber
+				if focused = a_block then
+					focused := j
+				elseif focused = j then
+					focused := a_block
+				end
+				refresh
+				log_line ({STRING_32} "moved block to slot " + j.out)
+			end
+		end
+
+	renumber
+		local
+			i: INTEGER
+		do
+			from
+				i := 1
+			until
+				i > blocks.count
+			loop
+				blocks.i_th (i).set_ordinal (6 + i)
+				i := i + 1
+			end
+		end
+
+	edited
+		do
+			build_layout
+			refresh
+		end
+
+	refresh
+		do
+			render
+			blit
+			offscreen.write_png ({STRING_32} "narrate_first_frame.png").do_nothing
+		end
+
+feature {NONE} -- Text engine: layout
+
+	lay_x: ARRAYED_LIST [REAL_64]
+			-- Left edge of each character of the focused block's text.
+
+	lay_adv: ARRAYED_LIST [REAL_64]
+			-- Advance of each character.
+
+	lay_line: ARRAYED_LIST [INTEGER]
+			-- Zero-based wrapped line of each character.
+
+	bold_flags: ARRAYED_LIST [BOOLEAN]
+			-- Emphasis per character, from the !marker! syntax.
+
+	lay_lines: INTEGER
+			-- Wrapped line count of the focused text (at least 1).
+
+	wrap_w: REAL_64
+		do
+			Result := card_w - 44.0
+		end
+
+	build_layout
+			-- Measure-then-place: per-character positions for the focused
+			-- block, greedy word wrap. Spaces never trigger a wrap.
+		local
+			t: STRING_32
+			n, i, j, k, line: INTEGER
+			x, ww: REAL_64
+		do
+			lay_x.wipe_out
+			lay_adv.wipe_out
+			lay_line.wipe_out
+			build_bold
+			lay_lines := 1
+			if focused > 0 then
+				t := blocks.i_th (focused).text
+				n := t.count
+				from
+					i := 1
+					x := 0.0
+					line := 0
+				until
+					i > n
+				loop
+					if t.item (i) = ' ' then
+						prose_font (i)
+						lay_x.extend (x)
+						lay_adv.extend (adv ({STRING_32} " "))
+						lay_line.extend (line)
+						x := x + lay_adv.last
+						i := i + 1
+					else
+						from
+							j := i
+						until
+							j >= n or else t.item (j + 1) = ' '
+						loop
+							j := j + 1
+						end
+						ww := 0.0
+						from
+							k := i
+						until
+							k > j
+						loop
+							prose_font (k)
+							ww := ww + adv (t.substring (k, k))
+							k := k + 1
+						end
+						if x > 0.0 and then x + ww > wrap_w then
+							line := line + 1
+							x := 0.0
+						end
+						from
+							k := i
+						until
+							k > j
+						loop
+							prose_font (k)
+							lay_x.extend (x)
+							lay_adv.extend (adv (t.substring (k, k)))
+							lay_line.extend (line)
+							x := x + lay_adv.last
+							k := k + 1
+						end
+						i := j + 1
+					end
+				end
+				lay_lines := line + 1
+			end
+		ensure
+			one_slot_per_char: focused > 0 implies lay_x.count = blocks.i_th (focused).text.count
+		end
+
+	build_bold
+		local
+			t: STRING_32
+			i, n: INTEGER
+			in_b: BOOLEAN
+		do
+			bold_flags.wipe_out
+			if focused > 0 then
+				t := blocks.i_th (focused).text
+				n := t.count
+				from
+					i := 1
+				until
+					i > n
+				loop
+					if t.item (i) = '!' then
+						if in_b then
+							bold_flags.extend (True)
+							in_b := False
+						elseif t.index_of ('!', i + 1) > 0 then
+							bold_flags.extend (True)
+							in_b := True
+						else
+							bold_flags.extend (False)
+						end
+					else
+						bold_flags.extend (in_b)
+					end
+					i := i + 1
+				end
+			end
+		end
+
+	prose_font (a_char_index: INTEGER)
+			-- The measuring and drawing font for character `a_char_index'
+			-- of the focused block: family by kind, weight by emphasis.
+		local
+			fam: STRING_32
+		do
+			if focused > 0 and then blocks.i_th (focused).kind.same_string ("PROSE") then
+				fam := F_text
+			elseif focused > 0 and then blocks.i_th (focused).kind.same_string ("HEADING") then
+				fam := F_text
+			else
+				fam := F_text
+			end
+			font (fam, 13.5,
+				a_char_index >= 1 and a_char_index <= bold_flags.count and then bold_flags.i_th (a_char_index))
+		end
+
+	caret_line: INTEGER
+		do
+			if caret > 0 and caret <= lay_line.count then
+				Result := lay_line.i_th (caret)
+			elseif not lay_line.is_empty and caret = 0 then
+				Result := lay_line.first
+			end
+		end
+
+	caret_x: REAL_64
+		do
+			if caret > 0 and caret <= lay_x.count then
+				Result := lay_x.i_th (caret) + lay_adv.i_th (caret)
+			end
+		end
+
+	line_start (a_line: INTEGER): INTEGER
+		local
+			i: INTEGER
+		do
+			from
+				i := 1
+			until
+				i > lay_line.count or else lay_line.i_th (i) = a_line
+			loop
+				i := i + 1
+			end
+			Result := (i - 1).max (0)
+		end
+
+	line_end (a_line: INTEGER): INTEGER
+		local
+			i: INTEGER
+		do
+			Result := lay_line.count
+			from
+				i := 1
+			until
+				i > lay_line.count
+			loop
+				if lay_line.i_th (i) = a_line then
+					Result := i
+				end
+				i := i + 1
+			end
+		end
+
+	offset_on_line (a_line: INTEGER; a_px: REAL_64): INTEGER
+			-- Caret offset nearest `a_px' on wrapped line `a_line'.
+		local
+			i: INTEGER
+			found_any: BOOLEAN
+		do
+			Result := lay_line.count
+			from
+				i := 1
+			until
+				i > lay_line.count
+			loop
+				if lay_line.i_th (i) = a_line then
+					if not found_any and then a_px < lay_x.i_th (i) + lay_adv.i_th (i) / 2.0 then
+						Result := i - 1
+						found_any := True
+					elseif a_px >= lay_x.i_th (i) + lay_adv.i_th (i) / 2.0 then
+						Result := i
+					end
+				end
+				i := i + 1
+			end
+		ensure
+			in_range: Result >= 0 and Result <= lay_line.count
+		end
+
+	offset_at (a_x, a_y: INTEGER): INTEGER
+			-- Character offset under a window point, for the focused block.
+		local
+			line: INTEGER
+			tx, ty: REAL_64
+		do
+			if focused > 0 and focused <= text_zones.count and then attached text_zones.i_th (focused) as z then
+				tx := a_x - z.x
+				ty := a_y - z.y
+				line := (ty / Line_h).truncated_to_integer.max (0).min (lay_lines - 1)
+				Result := offset_on_line (line, tx)
+			end
+		ensure
+			in_range: Result >= 0 and (focused > 0 implies Result <= blocks.i_th (focused).text.count)
+		end
+
+	has_selection: BOOLEAN
+		do
+			Result := sel_anchor /= caret
+		end
+
+	delete_selection
+		local
+			lo, hi: INTEGER
+			b: NARRATE_BLOCK
+		do
+			if focused > 0 then
+				b := blocks.i_th (focused)
+				lo := sel_anchor.min (caret)
+				hi := sel_anchor.max (caret)
+				b.text.remove_substring (lo + 1, hi)
+				caret := lo
+				sel_anchor := lo
+			end
+		ensure
+			collapsed: not has_selection
+		end
 
 feature {NONE} -- Rendering
 
 	render
 		do
+			btn_zones.wipe_out
+			text_zones.wipe_out
 			set_col (C_bg)
 			ctx.paint.do_nothing
 			draw_toolbar
@@ -223,11 +769,41 @@ feature {NONE} -- Rendering
 			txt (lx, 36.0, {STRING_32} "blocked %/183/ 12 unapproved %/183/ fidelity 0.87")
 		end
 
+	state_color (a_state: READABLE_STRING_32): NATURAL_32
+		do
+			if a_state.same_string ("APPROVED") then
+				Result := S_approved
+			elseif a_state.same_string ("RENDERED") then
+				Result := S_rendered
+			elseif a_state.same_string ("DIRTY") then
+				Result := S_dirty
+			elseif a_state.same_string ("FAILED") then
+				Result := S_failed
+			else
+				Result := S_new
+			end
+		end
+
+	state_wash (a_state: READABLE_STRING_32): NATURAL_32
+		do
+			if a_state.same_string ("APPROVED") then
+				Result := W_approved
+			elseif a_state.same_string ("RENDERED") then
+				Result := W_rendered
+			elseif a_state.same_string ("DIRTY") then
+				Result := W_dirty
+			elseif a_state.same_string ("FAILED") then
+				Result := W_failed
+			else
+				Result := C_variant
+			end
+		end
+
 	draw_map_rail
 		local
-			states: ARRAY [NATURAL_32]
 			i, col, row: INTEGER
 			cx, cy, ly: REAL_64
+			cell_state: NATURAL_32
 		do
 			set_col (C_variant)
 			ctx.rectangle (0.0, Bar_h, Rail_w, Win_h - Bar_h - Status_h).fill.do_nothing
@@ -235,31 +811,25 @@ feature {NONE} -- Rendering
 			font (F_mono, 10.0, False)
 			set_col (C_ink2)
 			txt (16.0, Bar_h + 26.0, {STRING_32} "MAP")
-			states := <<
-				S_approved, S_approved, S_approved,
-				S_approved, S_rendered, S_dirty,
-				S_rendered, S_rendered, S_approved,
-				S_approved, S_dirty, S_approved,
-				S_approved, S_dirty, S_failed,
-				S_rendered, S_approved, S_dirty,
-				S_approved, S_approved, S_rendered,
-				S_dirty, S_approved, S_approved,
-				S_approved, S_rendered, S_dirty,
-				S_approved, S_approved, S_approved,
-				S_new, S_new, S_new,
-				S_new, S_new, S_new>>
 			from
-				i := states.lower
+				i := 1
 			until
-				i > states.upper
+				i > 36
 			loop
-				col := (i - states.lower) \\ 3
-				row := (i - states.lower) // 3
+				col := (i - 1) \\ 3
+				row := (i - 1) // 3
 				cx := 16.0 + col * 24.0
 				cy := Bar_h + 40.0 + row * 24.0
-				set_col (states [i])
+				if i <= blocks.count then
+					cell_state := state_color (blocks.i_th (i).state)
+				elseif i <= 30 then
+					cell_state := demo_cell (i)
+				else
+					cell_state := S_new
+				end
+				set_col (cell_state)
 				fill_rrect (cx, cy, 18.0, 18.0, 3.0)
-				if i = 5 then
+				if i = focused then
 					set_col (C_ink)
 					stroke_rrect (cx - 1.5, cy - 1.5, 21.0, 21.0, 4.0)
 				end
@@ -273,6 +843,22 @@ feature {NONE} -- Rendering
 			legend_row (ly + 88.0, S_new, {STRING_32} "new")
 		end
 
+	demo_cell (a_i: INTEGER): NATURAL_32
+		local
+			m: INTEGER
+		do
+			m := a_i \\ 7
+			if m = 2 then
+				Result := S_rendered
+			elseif m = 4 then
+				Result := S_dirty
+			elseif m = 6 and a_i = 13 then
+				Result := S_failed
+			else
+				Result := S_approved
+			end
+		end
+
 	legend_row (a_y: REAL_64; a_col: NATURAL_32; a_label: STRING_32)
 		do
 			set_col (a_col)
@@ -282,16 +868,7 @@ feature {NONE} -- Rendering
 			txt (33.0, a_y + 10.0, a_label)
 		end
 
-	draw_block_list
-		local
-			y: REAL_64
-		do
-			y := Bar_h + 20.0
-			y := card_heading (y)
-			y := card_dirty (y + 14.0)
-			y := card_rendered (y + 14.0)
-			y := card_failed (y + 14.0)
-		end
+feature {NONE} -- Rendering: the block list
 
 	Card_x: REAL_64 = 124.0
 
@@ -300,200 +877,275 @@ feature {NONE} -- Rendering
 			Result := Win_w - Right_w - Card_x - 24.0
 		end
 
-	card_frame (a_y, a_h: REAL_64; a_stripe: NATURAL_32; a_selected: BOOLEAN)
-		do
-			set_col (C_surface)
-			fill_rrect (Card_x, a_y, card_w, a_h, 3.0)
-			if a_selected then
-				set_col (S_rendered)
-				ctx.set_line_width (2.0).do_nothing
-				rrect_path (Card_x - 1.0, a_y - 1.0, card_w + 2.0, a_h + 2.0, 4.0)
-				ctx.stroke.do_nothing
-				ctx.set_line_width (1.0).do_nothing
-			else
-				set_col (C_outline)
-				stroke_rrect (Card_x + 0.5, a_y + 0.5, card_w - 1.0, a_h - 1.0, 3.0)
-			end
-			set_col (a_stripe)
-			ctx.rectangle (Card_x, a_y + 3.0, 4.0, a_h - 6.0).fill.do_nothing
-		end
-
-	head_row (a_y: REAL_64; a_ord: STRING_32; a_kind: STRING_32; a_state: STRING_32; a_fg, a_bg: NATURAL_32; a_fid: STRING_32): REAL_64
-			-- Ordinal, kind chip, state chip, fidelity. Returns x after.
+	lines_of (a_text: STRING_32): INTEGER
+			-- Wrapped line count of `a_text' at wrap_w, plain weight.
 		local
-			x: REAL_64
+			n, i, j, k, line: INTEGER
+			x, ww: REAL_64
 		do
-			x := Card_x + 22.0
-			font (F_mono, 11.0, False)
-			set_col (C_ink2)
-			txt (x, a_y, a_ord)
-			x := x + adv (a_ord) + 12.0
-			x := chip (x, a_y - 14.0, a_kind, C_ink2, C_variant, C_outline)
-			x := chip (x + 8.0, a_y - 14.0, a_state, a_fg, a_bg, a_fg)
-			if not a_fid.is_empty then
-				font (F_mono, 11.0, False)
-				set_col (C_ink)
-				txt (x + 12.0, a_y, a_fid)
-				x := x + 12.0 + adv (a_fid)
-			end
-			Result := x
-		end
-
-	card_heading (a_y: REAL_64): REAL_64
-		local
-			h: REAL_64
-			bx: REAL_64
-		do
-			h := 128.0
-			card_frame (a_y, h, S_approved, False)
-			head_row (a_y + 30.0, {STRING_32} "07", {STRING_32} "HEADING", {STRING_32} "APPROVED", S_approved, W_approved, {STRING_32} "0.98").do_nothing
-			font (F_text, 15.0, False)
-			set_col (C_ink)
-			txt (Card_x + 22.0, a_y + 66.0, {STRING_32} "The Day Yahweh Looked Defeated")
-			bx := Card_x + 20.0
-			bx := button (bx, a_y + h - 44.0, {STRING_32} "Play", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "New Take", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Approved", False, False)
-			bx := button (bx + 20.0, a_y + h - 44.0, {STRING_32} "Split Here", False, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Up", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Down", True, False)
-			Result := a_y + h
-		end
-
-	card_dirty (a_y: REAL_64): REAL_64
-		local
-			h: REAL_64
-			x, bx: REAL_64
-		do
-			h := 196.0
-			card_frame (a_y, h, S_dirty, True)
-			x := head_row (a_y + 30.0, {STRING_32} "08", {STRING_32} "PROSE", {STRING_32} "DIRTY", S_dirty, W_dirty, {STRING_32} "")
-			font (F_mono, 10.0, False)
-			set_col (S_dirty)
-			txt (x + 16.0, a_y + 29.0, {STRING_32} "%/8212/  60-word sentence")
-			draw_dirty_prose (a_y + 48.0)
-			bx := Card_x + 20.0
-			bx := button (bx, a_y + h - 44.0, {STRING_32} "Play", False, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "New Take", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Approve", False, False)
-			bx := button (bx + 20.0, a_y + h - 44.0, {STRING_32} "Split Here", True, True)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Up", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Down", True, False)
-			Result := a_y + h
-		end
-
-	draw_dirty_prose (a_top: REAL_64)
-			-- The split preview: rendered-tint above the caret, dirty-tint
-			-- below, bold runs from the marker syntax, the caret itself in
-			-- the failure red - the reference figure's centrepiece.
-		local
-			words: ARRAY [STRING_32]
-			bold_from, bold_to, split_at: INTEGER
-			i: INTEGER
-			x, y, w, x0: REAL_64
-			line_h: REAL_64
-			upper: BOOLEAN
-			s: STRING_32
-		do
-			words := <<
-				{STRING_32} "And", {STRING_32} "he%/8217/s", {STRING_32} "smart", {STRING_32} "about", {STRING_32} "it,", {STRING_32} "too.",
-				{STRING_32} "He", {STRING_32} "doesn%/8217/t", {STRING_32} "overreach.", {STRING_32} "He", {STRING_32} "doesn%/8217/t",
-				{STRING_32} "claim", {STRING_32} "the", {STRING_32} "whole", {STRING_32} "Bible", {STRING_32} "is",
-				{STRING_32} "one", {STRING_32} "long", {STRING_32} "lie!.",
-				{STRING_32} "He", {STRING_32} "does", {STRING_32} "the", {STRING_32} "thing", {STRING_32} "that", {STRING_32} "actually",
-				{STRING_32} "works", {STRING_32} "on", {STRING_32} "thoughtful", {STRING_32} "people,", {STRING_32} "which", {STRING_32} "is",
-				{STRING_32} "to", {STRING_32} "say:", {STRING_32} "I%/8217/m", {STRING_32} "not", {STRING_32} "asking", {STRING_32} "you",
-				{STRING_32} "to", {STRING_32} "distrust", {STRING_32} "the", {STRING_32} "text.", {STRING_32} "I%/8217/m", {STRING_32} "asking",
-				{STRING_32} "you", {STRING_32} "to", {STRING_32} "read", {STRING_32} "it", {STRING_32} "more", {STRING_32} "honestly",
-				{STRING_32} "than", {STRING_32} "your", {STRING_32} "pastor!", {STRING_32} "does.">>
-			bold_from := 17
-			bold_to := 19
-			split_at := 19
-			x0 := Card_x + 22.0
-			x := x0
-			y := a_top + 20.0
-			line_h := 26.0
-			upper := True
+			font (F_text, 13.5, False)
+			n := a_text.count
 			from
-				i := words.lower
+				i := 1
+				x := 0.0
+				line := 0
 			until
-				i > words.upper
+				i > n
 			loop
-				s := words [i]
-				font (F_text, 13.5, (i >= bold_from and i <= bold_to) or s.same_string ({STRING_32} "pastor!"))
-				w := adv (s)
-				if x + w > Card_x + card_w - 24.0 then
-					x := x0
-					y := y + line_h
-				end
-				if upper then
-					set_col (W_rendered)
+				if a_text.item (i) = ' ' then
+					x := x + adv ({STRING_32} " ")
+					i := i + 1
 				else
-					set_col (W_dirty)
+					from
+						j := i
+					until
+						j >= n or else a_text.item (j + 1) = ' '
+					loop
+						j := j + 1
+					end
+					ww := 0.0
+					from
+						k := i
+					until
+						k > j
+					loop
+						ww := ww + adv (a_text.substring (k, k))
+						k := k + 1
+					end
+					if x > 0.0 and then x + ww > wrap_w then
+						line := line + 1
+						x := 0.0
+					end
+					x := x + ww
+					i := j + 1
 				end
-				ctx.rectangle (x - 2.0, y - 16.0, w + 6.0, 22.0).fill.do_nothing
-				set_col (C_ink)
-				txt (x, y, s)
-				x := x + w + 5.0
-				if i = split_at then
-					set_col (S_failed)
-					ctx.rectangle (x - 2.0, y - 17.0, 2.0, 24.0).fill.do_nothing
-					upper := False
-				end
+			end
+			Result := line + 1
+		ensure
+			at_least_one: Result >= 1
+		end
+
+	block_height (a_index: INTEGER): REAL_64
+		local
+			nl: INTEGER
+		do
+			if a_index = focused then
+				nl := lay_lines
+			else
+				nl := lines_of (blocks.i_th (a_index).text)
+			end
+			Result := 44.0 + nl * Line_h + 12.0 + 56.0
+		end
+
+	draw_block_list
+		local
+			i: INTEGER
+			y: REAL_64
+		do
+			y := Bar_h + 20.0
+			from
+				i := 1
+			until
+				i > blocks.count
+			loop
+				y := draw_block (i, y) + 14.0
 				i := i + 1
 			end
 		end
 
-	card_rendered (a_y: REAL_64): REAL_64
+	draw_block (a_index: INTEGER; a_y: REAL_64): REAL_64
+			-- Draw block `a_index' at `a_y'; return its bottom.
 		local
-			h: REAL_64
-			bx: REAL_64
-			r: STRING_32
+			b: NARRATE_BLOCK
+			h, x, bx, by: REAL_64
+			sc: NATURAL_32
 		do
-			h := 150.0
-			card_frame (a_y, h, S_rendered, False)
-			head_row (a_y + 30.0, {STRING_32} "09", {STRING_32} "PROSE", {STRING_32} "RENDERED", S_rendered, W_rendered, {STRING_32} "0.94").do_nothing
-			r := {STRING_32} "take 2 rendering"
+			b := blocks.i_th (a_index)
+			h := block_height (a_index)
+			sc := state_color (b.state)
+			set_col (C_surface)
+			fill_rrect (Card_x, a_y, card_w, h, 3.0)
+			if a_index = focused then
+				set_col (S_rendered)
+				ctx.set_line_width (2.0).do_nothing
+				rrect_path (Card_x - 1.0, a_y - 1.0, card_w + 2.0, h + 2.0, 4.0)
+				ctx.stroke.do_nothing
+				ctx.set_line_width (1.0).do_nothing
+			else
+				set_col (C_outline)
+				stroke_rrect (Card_x + 0.5, a_y + 0.5, card_w - 1.0, h - 1.0, 3.0)
+			end
+			set_col (sc)
+			ctx.rectangle (Card_x, a_y + 3.0, 4.0, h - 6.0).fill.do_nothing
+
+			x := Card_x + 22.0
 			font (F_mono, 11.0, False)
-			set_col (S_rendered)
-			txt (Card_x + card_w - 22.0 - adv (r), a_y + 30.0, r)
-			font (F_text, 13.5, False)
-			set_col (C_ink)
-			txt (Card_x + 22.0, a_y + 66.0, {STRING_32} "He points at the stone, then at 2 Kings 3, then back at the stone, and he lets the")
-			txt (Card_x + 22.0, a_y + 88.0, {STRING_32} "two of them argue with each other while he stands off to the side looking reasonable.")
+			set_col (C_ink2)
+			txt (x, a_y + 30.0, two_digits (b.ordinal))
+			x := x + adv (two_digits (b.ordinal)) + 12.0
+			x := chip (x, a_y + 16.0, b.kind, C_ink2, C_variant, C_outline)
+			x := chip (x + 8.0, a_y + 16.0, b.state, sc, state_wash (b.state), sc)
+			if not b.fid.is_empty then
+				font (F_mono, 11.0, False)
+				set_col (C_ink)
+				txt (x + 12.0, a_y + 30.0, b.fid)
+				x := x + 12.0 + adv (b.fid)
+			end
+			if not b.warn.is_empty then
+				font (F_mono, 10.0, False)
+				set_col (S_dirty)
+				txt (x + 16.0, a_y + 29.0, {STRING_32} "%/8212/  " + b.warn)
+			end
+
+			draw_block_text (a_index, a_y + 44.0)
+
+			by := a_y + h - 44.0
 			bx := Card_x + 20.0
-			bx := button (bx, a_y + h - 44.0, {STRING_32} "Play", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "New Take", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Approve", True, True)
-			bx := button (bx + 20.0, a_y + h - 44.0, {STRING_32} "Split Here", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Up", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Down", True, False)
+			bx := zone_button (bx, by, {STRING_32} "Play",
+				b.state.same_string ("APPROVED") or b.state.same_string ("RENDERED"), False, a_index, 1)
+			bx := zone_button (bx + 8.0, by, {STRING_32} "New Take", True, False, a_index, 2)
+			if b.state.same_string ("FAILED") then
+				bx := zone_button (bx + 8.0, by, {STRING_32} "Retry", True, True, a_index, 7)
+			else
+				bx := zone_button (bx + 8.0, by, {STRING_32} "Approve",
+					b.state.same_string ("RENDERED"), b.state.same_string ("RENDERED"), a_index, 3)
+			end
+			bx := zone_button (bx + 20.0, by, {STRING_32} "Split Here", a_index = focused,
+				a_index = focused, a_index, 4)
+			bx := zone_button (bx + 8.0, by, {STRING_32} "Up", a_index > 1, False, a_index, 5)
+			bx := zone_button (bx + 8.0, by, {STRING_32} "Down", a_index < blocks.count, False, a_index, 6)
 			Result := a_y + h
 		end
 
-	card_failed (a_y: REAL_64): REAL_64
+	draw_block_text (a_index: INTEGER; a_top: REAL_64)
+			-- The prose area. For the focused block: per-character engine
+			-- rendering - tint split at the caret, selection, emphasis,
+			-- the caret bar itself. Others: plain wrapped text.
 		local
-			h: REAL_64
-			x, bx: REAL_64
+			b: NARRATE_BLOCK
+			t: STRING_32
+			i, n, lo, hi: INTEGER
+			x, y, w, cxx: REAL_64
+			zone_h: REAL_64
+			tint: NATURAL_32
+			seln: BOOLEAN
 		do
-			h := 150.0
-			card_frame (a_y, h, S_failed, False)
-			x := head_row (a_y + 30.0, {STRING_32} "10", {STRING_32} "SEPARATOR", {STRING_32} "FAILED", S_failed, W_failed, {STRING_32} "")
-			font (F_mono, 10.0, False)
-			set_col (S_dirty)
-			txt (x + 16.0, a_y + 29.0, {STRING_32} "%/8212/  engine: CUDA out of memory")
+			b := blocks.i_th (a_index)
+			t := b.text
+			n := t.count
+			if a_index = focused then
+				zone_h := lay_lines * Line_h
+			else
+				zone_h := lines_of (t) * Line_h
+			end
+			if text_zones.count < a_index then
+				from
+				until
+					text_zones.count >= a_index
+				loop
+					text_zones.extend ([0.0, 0.0, 0.0, 0.0, text_zones.count + 1])
+				end
+			end
+			text_zones.put_i_th ([Card_x + 22.0, a_top, wrap_w, zone_h, a_index], a_index)
+
+			if a_index = focused then
+				lo := sel_anchor.min (caret)
+				hi := sel_anchor.max (caret)
+				from
+					i := 1
+				until
+					i > n
+				loop
+					x := Card_x + 22.0 + lay_x.i_th (i)
+					y := a_top + lay_line.i_th (i) * Line_h + 18.0
+					w := lay_adv.i_th (i)
+					seln := has_selection and i > lo and i <= hi
+					if seln then
+						set_col (S_rendered)
+						ctx.rectangle (x - 1.0, y - 15.0, w + 2.0, 21.0).fill.do_nothing
+					elseif b.kind.same_string ("PROSE") then
+						if i <= caret then
+							tint := W_rendered
+						else
+							tint := W_dirty
+						end
+						set_col (tint)
+						ctx.rectangle (x - 1.0, y - 15.0, w + 2.0, 21.0).fill.do_nothing
+					end
+					prose_font (i)
+					if seln then
+						set_col (C_surface)
+					else
+						set_col (C_ink)
+					end
+					txt (x, y, t.substring (i, i))
+					i := i + 1
+				end
+				cxx := Card_x + 22.0 + caret_x
+				y := a_top + caret_line * Line_h + 18.0
+				set_col (S_failed)
+				ctx.rectangle (cxx, y - 16.0, 2.0, 23.0).fill.do_nothing
+			else
+				draw_plain_wrapped (t, Card_x + 22.0, a_top)
+			end
+		end
+
+	draw_plain_wrapped (a_text: STRING_32; a_x, a_top: REAL_64)
+		local
+			n, i, j, k, line: INTEGER
+			x, ww: REAL_64
+		do
 			font (F_text, 13.5, False)
 			set_col (C_ink)
-			txt (Card_x + 22.0, a_y + 66.0, {STRING_32} "The Leash %/183/ The Day Yahweh Looked Defeated %/183/ And One Called Mercy")
-			bx := Card_x + 20.0
-			bx := button (bx, a_y + h - 44.0, {STRING_32} "Retry", True, True)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Play", False, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Approve", False, False)
-			bx := button (bx + 20.0, a_y + h - 44.0, {STRING_32} "Split Here", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Up", True, False)
-			bx := button (bx + 8.0, a_y + h - 44.0, {STRING_32} "Down", True, False)
-			Result := a_y + h
+			n := a_text.count
+			from
+				i := 1
+				x := 0.0
+				line := 0
+			until
+				i > n
+			loop
+				if a_text.item (i) = ' ' then
+					x := x + adv ({STRING_32} " ")
+					i := i + 1
+				else
+					from
+						j := i
+					until
+						j >= n or else a_text.item (j + 1) = ' '
+					loop
+						j := j + 1
+					end
+					ww := 0.0
+					from
+						k := i
+					until
+						k > j
+					loop
+						ww := ww + adv (a_text.substring (k, k))
+						k := k + 1
+					end
+					if x > 0.0 and then x + ww > wrap_w then
+						line := line + 1
+						x := 0.0
+					end
+					txt (a_x + x, a_top + line * Line_h + 18.0, a_text.substring (i, j))
+					x := x + ww
+					i := j + 1
+				end
+			end
 		end
+
+	two_digits (a_n: INTEGER): STRING_32
+		do
+			create Result.make (2)
+			if a_n < 10 then
+				Result.append_character ('0')
+			end
+			Result.append_string_general (a_n.out)
+		end
+
+feature {NONE} -- Rendering: right rail
 
 	draw_right_rail
 		local
@@ -726,6 +1378,18 @@ feature {NONE} -- Drawing helpers
 			Result := a_x + w
 		end
 
+	zone_button (a_x, a_y: REAL_64; a_label: STRING_32; a_enabled, a_primary: BOOLEAN; a_block, a_action: INTEGER): REAL_64
+			-- A button with a recorded hit zone bound to a block action.
+		local
+			r: REAL_64
+		do
+			r := button (a_x, a_y, a_label, a_enabled, a_primary)
+			if a_enabled then
+				btn_zones.extend ([a_x, a_y, r - a_x, 32.0, a_block, a_action])
+			end
+			Result := r
+		end
+
 	chip (a_x, a_y: REAL_64; a_label: STRING_32; a_fg, a_bg, a_border: NATURAL_32): REAL_64
 			-- Small state chip; returns x after.
 		local
@@ -763,6 +1427,57 @@ feature {NONE} -- Blit
 			end
 		end
 
+feature {NONE} -- Fonts
+
+	load_fonts
+			-- FR_PRIVATE loads: the vendored families become selectable by
+			-- name for this process only. Falls back silently per family -
+			-- the log records which ones actually arrived.
+		local
+			dirs: ARRAY [STRING_32]
+			d: STRING_32
+			i: INTEGER
+			f: RAW_FILE
+			ok: INTEGER
+		do
+			dirs := <<
+				{STRING_32} "D:\prod\simple_narrate\fonts\",
+				{STRING_32} "fonts\">>
+			from
+				i := dirs.lower
+			until
+				i > dirs.upper or fonts_loaded
+			loop
+				d := dirs [i]
+				create f.make_with_name (d + {STRING_32} "Archivo.ttf")
+				if f.exists then
+					ok := add_font (d + {STRING_32} "Archivo.ttf")
+						+ add_font (d + {STRING_32} "Literata.ttf")
+						+ add_font (d + {STRING_32} "IBMPlexMono.ttf")
+					fonts_loaded := ok = 3
+					log_line ({STRING_32} "fonts from " + d + {STRING_32} ": " + ok.out + {STRING_32} "/3")
+				end
+				i := i + 1
+			end
+			if not fonts_loaded then
+				log_line ({STRING_32} "fonts NOT loaded - falling back to system faces")
+			end
+		end
+
+	add_font (a_path: STRING_32): INTEGER
+		local
+			s8: STRING_8
+			cs: C_STRING
+		do
+			s8 := a_path.to_string_8
+			create cs.make (s8)
+			if c_add_font (cs.item) > 0 then
+				Result := 1
+			end
+		end
+
+	fonts_loaded: BOOLEAN
+
 feature {NONE} -- Log
 
 	log_line (a_s: STRING_32)
@@ -791,6 +1506,23 @@ feature {NONE} -- State
 	ctx: CAIRO_CONTEXT
 	ev_buf: MANAGED_POINTER
 	hwnd: POINTER
+
+	blocks: ARRAYED_LIST [NARRATE_BLOCK]
+
+	focused: INTEGER
+			-- Index of the block owning caret and selection; 0 = none.
+
+	caret: INTEGER
+			-- Insertion position in the focused text, 0 .. count.
+
+	sel_anchor: INTEGER
+			-- Other end of the selection; equal to caret when empty.
+
+	dragging: BOOLEAN
+
+	btn_zones: ARRAYED_LIST [TUPLE [x, y, w, h: REAL_64; block, action: INTEGER]]
+
+	text_zones: ARRAYED_LIST [TUPLE [x, y, w, h: REAL_64; block: INTEGER]]
 
 feature {NONE} -- Externals
 
@@ -835,5 +1567,18 @@ feature {NONE} -- Externals
 		alias
 			"return nw_add_font((const char*)$a_path);"
 		end
+
+	c_shift_down: INTEGER
+		external
+			"C inline use %"narrate_win.h%""
+		alias
+			"return nw_shift_down();"
+		end
+
+invariant
+	caret_in_range: focused > 0 and focused <= blocks.count implies
+		caret >= 0 and caret <= blocks.i_th (focused).text.count
+	anchor_in_range: focused > 0 and focused <= blocks.count implies
+		sel_anchor >= 0 and sel_anchor <= blocks.i_th (focused).text.count
 
 end

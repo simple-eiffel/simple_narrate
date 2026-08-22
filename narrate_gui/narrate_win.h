@@ -33,13 +33,26 @@ static LRESULT CALLBACK nw_wndproc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
         case WM_LBUTTONDOWN:
             SetFocus(h);
+            SetCapture(h);
             nw_push(2, (int)(short)LOWORD(l), (int)(short)HIWORD(l), 0);
+            return 0;
+        case WM_LBUTTONUP:
+            ReleaseCapture();
+            nw_push(10, (int)(short)LOWORD(l), (int)(short)HIWORD(l), 0);
+            return 0;
+        case WM_LBUTTONDBLCLK:
+            nw_push(8, (int)(short)LOWORD(l), (int)(short)HIWORD(l), 0);
+            return 0;
+        case WM_MOUSEMOVE:
+            if (w & MK_LBUTTON)
+                nw_push(9, (int)(short)LOWORD(l), (int)(short)HIWORD(l), 0);
             return 0;
         case WM_CHAR:
             nw_push(3, (int)w, 0, 0);
             return 0;
         case WM_KEYDOWN:
-            if (w == VK_LEFT || w == VK_RIGHT || w == VK_HOME || w == VK_END || w == VK_DELETE)
+            if (w == VK_LEFT || w == VK_RIGHT || w == VK_HOME || w == VK_END ||
+                w == VK_DELETE || w == VK_UP || w == VK_DOWN)
                 nw_push(4, (int)w, 0, 0);
             return 0;
         case WM_TIMER:
@@ -100,6 +113,7 @@ static void* nw_create_window(const wchar_t* title, int px, int py, int cw, int 
     HWND h;
     SetProcessDPIAware();
     ZeroMemory(&wc, sizeof(wc));
+    wc.style = CS_DBLCLKS;
     wc.lpfnWndProc = nw_wndproc;
     wc.hInstance = GetModuleHandleW(0);
     wc.hCursor = LoadCursorW(0, (LPCWSTR)IDC_ARROW);
@@ -307,4 +321,8 @@ static int nw_minutes_of_day(void) {
    through Cairo's Win32 font backend, process-only (FR_PRIVATE), no install. */
 static int nw_add_font (const char *path) {
     return (int) AddFontResourceExA ((LPCSTR) path, FR_PRIVATE, 0);
+}
+
+static int nw_shift_down(void) {
+    return (GetKeyState(VK_SHIFT) & 0x8000) ? 1 : 0;
 }
