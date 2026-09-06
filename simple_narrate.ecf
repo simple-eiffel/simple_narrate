@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <system xmlns="http://www.eiffel.com/developers/xml/configuration-1-23-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-23-0 http://www.eiffel.com/developers/xml/configuration-1-23-0.xsd" name="simple_narrate" uuid="7B4E9D02-51C6-4F83-A9D7-0E62B8C4F317" library_target="simple_narrate">
-	<description>Block-by-block narration editor: essay in, approved narrated audio out. Two gates - the number and the ear.</description>
+	<description>Block-by-block narration editor: essay in, approved narrated audio out. Two gates - the number and the ear. The Studio (Phase S2) is the `narrate' target.</description>
 
+	<!-- The Studio: simple_widgets + simple_cairo + simple_shaping, no browser, no
+	     WebView (Larry, 2026-09-05). studio\ holds the window; the August block
+	     editor in narrate_gui\ is kept buildable on its own target below and is
+	     NOT in this system - its Win32 externals and simple_shell's are two
+	     window kits that should never share a universe. -->
 	<target name="simple_narrate">
 		<root all_classes="true"/>
 		<file_rule>
@@ -20,13 +25,55 @@
 		</capability>
 		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
 		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf"/>
+		<library name="simple_shell" location="$SIMPLE_EIFFEL/simple_shell/simple_shell.ecf"/>
+		<!-- simple_cairo and simple_shaping are named EXPLICITLY: an indirectly
+		     included library's classes are not in this system's universe, and the
+		     shell reads SHAPED_LAYOUT for its own gate. -->
 		<library name="simple_cairo" location="$SIMPLE_EIFFEL/simple_cairo/simple_cairo.ecf"/>
-		<external_include location="$(SIMPLE_EIFFEL)/simple_narrate/narrate_gui"/>
-		<cluster name="narrate_gui" location=".\narrate_gui\" recursive="true"/>
+		<library name="simple_shaping" location="$SIMPLE_EIFFEL/simple_shaping/simple_shaping.ecf"/>
+		<library name="simple_widgets" location="$SIMPLE_EIFFEL/simple_widgets/simple_widgets.ecf">
+			<!-- SW_LOCALE.format_number carries an unused local of the library's own;
+			     keep this project's build at zero warnings, as simple_chat does. -->
+			<option warning="none"/>
+		</library>
+		<cluster name="studio" location=".\studio\" recursive="true"/>
 	</target>
 
 	<target name="narrate" extends="simple_narrate">
-		<root class="NARRATE_GUI" feature="make"/>
+		<root class="STUDIO_APP" feature="make"/>
 		<setting name="console_application" value="false"/>
+	</target>
+
+	<target name="simple_narrate_tests" extends="simple_narrate">
+		<root class="TEST_APP" feature="make"/>
+		<setting name="console_application" value="true"/>
+		<library name="simple_testing" location="$SIMPLE_EIFFEL/simple_testing/simple_testing.ecf"/>
+		<library name="testing" location="$ISE_LIBRARY\library\testing\testing.ecf"/>
+		<cluster name="tests" location=".\testing\" recursive="true"/>
+	</target>
+
+	<!-- The August 2026 block editor (caret, selection, split-tint), pure Win32 +
+	     simple_cairo. Its text engine was harvested into simple_widgets as
+	     SW_TEXT_BOX; it stays buildable as the reference it is. -->
+	<target name="narrate_editor">
+		<root class="NARRATE_GUI" feature="make"/>
+		<file_rule>
+			<exclude>/EIFGENs$</exclude>
+			<exclude>/\..*$</exclude>
+		</file_rule>
+		<option warning="warning">
+			<assertions precondition="true" postcondition="true" check="true" invariant="true" loop="true" supplier_precondition="true"/>
+		</option>
+		<setting name="dead_code_removal" value="feature"/>
+		<setting name="console_application" value="false"/>
+		<capability>
+			<concurrency support="scoop" use="thread"/>
+			<void_safety support="all"/>
+		</capability>
+		<library name="base" location="$ISE_LIBRARY\library\base\base.ecf"/>
+		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf"/>
+		<library name="simple_cairo" location="$SIMPLE_EIFFEL/simple_cairo/simple_cairo.ecf"/>
+		<external_include location="$(SIMPLE_EIFFEL)/simple_narrate/narrate_gui"/>
+		<cluster name="narrate_gui" location=".\narrate_gui\" recursive="true"/>
 	</target>
 </system>

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Eiffel](https://img.shields.io/badge/Eiffel-25.02-blue.svg)](https://www.eiffel.org/)
 [![Design by Contract](https://img.shields.io/badge/DbC-enforced-orange.svg)]()
-[![Status](https://img.shields.io/badge/status-specification-lightgrey.svg)]()
+[![Status](https://img.shields.io/badge/status-Phase_S2_step_1-blue.svg)]()
 
 Turn an essay you wrote into a narrated recording you would actually publish —
 running entirely on your own machine, and refusing to call the job done on
@@ -15,18 +15,37 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 
 ---
 
-## ⚠ Status: specification only
+## Status: the Studio shell stands (Phase S2, step 1)
 
-**There is no code in this repository yet.** No Eiffel has been written, nothing
-has been compiled, and none of the contracts in the specification have seen
-`ec.sh check`. The specification says so in its own margins.
+**2026-09-06.** The Studio window exists and is proven headless: `narrate.exe`
+opens one `SW_WINDOW` with shaped text on, the seven-pad menu bar (File / Edit /
+Block / Voice / Render / Export / Help), a toolbar, the breadcrumb strip, an
+`SW_DOCK_HOST` whose three zones stand empty around an empty-state centre, and
+the status bar. Step 1's gate from [`specs/spec-studio-frame.md`](specs/spec-studio-frame.md)
+§F7 - *the window opens, and Hebrew in a label reads right-to-left* - is asserted
+on the breadcrumb's own shaped layout and written to `evidence/studio-shell-hebrew.png`.
+Nothing behind the frame knows a block yet; steps 2-10 seat the thread, the
+inspector, the palette and the transport into it.
 
-What is here is [`specs/spec.md`](specs/spec.md) — 20 sections covering the design,
-the ecosystem dependencies that were verified by reading them, a full Design by
-Contract layer, and a testing plan targeting assertion coverage.
+```bash
+/d/prod/ec.sh test -config simple_narrate.ecf -target simple_narrate_tests
+./EIFGENs/simple_narrate_tests/F_code/simple_narrate.exe     # 5 passed, 0 failed
+/d/prod/ec.sh test -config simple_narrate.ecf -target narrate
+./EIFGENs/narrate/F_code/simple_narrate.exe                  # the Studio, on a desktop
+```
 
-The next step is a Python spike in [`spike/`](spike/), not more specification.
-Three questions gate everything else, and no amount of design settles them:
+`cairo.dll` (from `simple_cairo/`) goes beside either executable.
+
+Targets: `narrate` (the Studio), `simple_narrate_tests`, and `narrate_editor` -
+the August 2026 pure-Win32 block editor in `narrate_gui/`, kept buildable as the
+reference whose text engine became `simple_widgets`' `SW_TEXT_BOX`.
+
+The design is in [`HANDOFF-STUDIO.md`](HANDOFF-STUDIO.md) (read it first) and the
+specs it orders: [`specs/spec.md`](specs/spec.md) is the base, `spec-studio.md`
+the amendment, `spec-studio-frame.md` the window drawn to the widget,
+`spec-marks-as-spans.md` the speaking-function palette. The three Phase 0
+questions still gate the *engine* side, and a Python spike in [`spike/`](spike/)
+still answers them, not more specification:
 
 1. Does a local model hold one voice across 28 minutes, or drift?
 2. Does a spliced emphasis sound like a person leaning on a word, or like a splice?

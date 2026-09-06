@@ -196,7 +196,9 @@ From `spec.md` §15, extended by `spec-studio.md` §S9:
   `voice_id` on the block, `recorded` slots, plate bindings — data-model work
   that avoids a migration later.
 - **Phase S2** — the Studio. Native stack. Block list, palette, playback,
-  regeneration, takes, state display.
+  regeneration, takes, state display. **Step 1 (the shell) built 2026-09-06**
+  — `studio/studio_shell.e`, `narrate` target, 5/5 headless; see
+  `spec-studio-frame.md` F7 for steps 2–10.
 - **Phase S3** — prosody capture. **Cuttable** without affecting anything else.
 - **Phase S4** — export an edit decision list the video assembler consumes.
 
@@ -244,5 +246,7 @@ session's context:
 5. Take §5.1 to Larry as three questions, not as assumptions. **Asked 2026-09-05; awaiting answers.**
 6. Then Phase 0's spike — and note how much of it §3 already answers.
 
-**Do not start with Eiffel.** `spec.md` §15 is explicit that the next step is a
-Python spike, not more specification and not code.
+**Do not start with Eiffel** *on the engine side*: `spec.md` §15 is explicit that
+the next step there is a Python spike, not more specification and not code.
+The Studio *frame* is Eiffel already — Larry said "merge it and keep going"
+(2026-09-06) and F7 step 1 shipped; continue down F7.
