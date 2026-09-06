@@ -13,7 +13,12 @@ Sources, read 2026-09-05:
 - ElevenLabs help centre: https://elevenlabs.io/docs/help-center/product/studio/studio/what-is-studio
 - ElevenCreative Studio 3.0 overview: https://elevenlabs.io/docs/eleven-creative/products/studio
 
-Status: **specification.** No code. Nothing here has compiled.
+Status: **F7 step 1 built** (2026-09-06) - `studio/studio_shell.e`, proven
+headless by `testing/studio_shell_assault.e` (5/5) with the frame at
+`evidence/studio-shell-hebrew.png`. The gate it names needed `simple_widgets`
+0.8.1: `SW_LABEL` painted on cairo's toy path until then, so a Hebrew label
+read backwards under a menu bar that shaped its own. Steps 2-10 are still
+specification.
 
 **Where it lives: `simple_narrate`.** The Studio is the `narrate` application
 target in `simple_narrate.ecf`. `simple_voice` (Piper), `simple_comfyui`
