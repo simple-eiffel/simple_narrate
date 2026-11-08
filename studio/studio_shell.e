@@ -274,7 +274,7 @@ feature {NONE} -- Fonts
 				across
 					Font_files as ic
 				loop
-					if window.add_font (l_dir + "\" + ic) then
+					if window.add_font ((create {PATH}.make_from_string (l_dir)).extended (ic).name) then
 						fonts_registered := fonts_registered + 1
 					end
 				end

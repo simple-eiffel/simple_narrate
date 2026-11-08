@@ -6,7 +6,7 @@
 [![Eiffel](https://img.shields.io/badge/Eiffel-25.02-blue.svg)](https://www.eiffel.org/)
 [![Design by Contract](https://img.shields.io/badge/DbC-enforced-orange.svg)]()
 [![Status](https://img.shields.io/badge/status-Phase_S2_step_1-blue.svg)]()
-![Windows: tests pass](https://img.shields.io/badge/Windows-tests%20pass-0078D6?logo=windows&logoColor=white) ![Linux and macOS: in progress](https://img.shields.io/badge/Linux%20%7C%20macOS-in%20progress-lightgrey)
+![Windows: tests pass](https://img.shields.io/badge/Windows-tests%20pass-0078D6?logo=windows&logoColor=white) ![macOS: tests pass](https://img.shields.io/badge/macOS-tests%20pass-success?logo=apple) ![Linux: in progress](https://img.shields.io/badge/Linux-in%20progress-lightgray)
 
 Turn an essay you wrote into a narrated recording you would actually publish —
 running entirely on your own machine, and refusing to call the job done on
@@ -21,7 +21,7 @@ Part of the [Simple Eiffel](https://github.com/simple-eiffel) ecosystem.
 **2026-09-06.** The Studio window exists and is proven headless: `narrate.exe`
 opens one `SW_WINDOW` with shaped text on, the seven-pad menu bar (File / Edit /
 Block / Voice / Render / Export / Help), a toolbar, the breadcrumb strip, an
-`SW_DOCK_HOST` whose three zones stand empty around an empty-state centre, and
+`SW_DOCK_HOST` whose three zones stand empty around an empty-state center, and
 the status bar. Step 1's gate from [`specs/spec-studio-frame.md`](specs/spec-studio-frame.md)
 §F7 - *the window opens, and Hebrew in a label reads right-to-left* - is asserted
 on the breadcrumb's own shaped layout and written to `evidence/studio-shell-hebrew.png`.
@@ -36,6 +36,13 @@ inspector, the palette and the transport into it.
 ```
 
 `cairo.dll` (from `simple_cairo/`) goes beside either executable.
+
+**macOS** (2026-11-08): the Studio and its tests build on a Mac over simple_shell's AppKit
+half, and `simple_narrate_tests` passes 5 of 5 there; the Studio window renders with its
+menus, the Hebrew breadcrumb read right to left, the empty state and the status bar. Build
+`make -C Clib` in `simple_cairo`, `simple_shaping` and `simple_shell` first, set
+`SIMPLE_EIFFEL` so the fonts in `fonts/` are found, and use `ec` as on Windows. The
+`narrate_editor` target is Win32 only.
 
 Targets: `narrate` (the Studio), `simple_narrate_tests`, and `narrate_editor` -
 the August 2026 pure-Win32 block editor in `narrate_gui/`, kept buildable as the
@@ -104,6 +111,6 @@ Verified by reading them, not assumed:
 
 ---
 
-## Licence
+## License
 
 MIT — see [LICENSE](LICENSE).
