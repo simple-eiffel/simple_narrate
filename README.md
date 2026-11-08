@@ -6,6 +6,7 @@
 [![Eiffel](https://img.shields.io/badge/Eiffel-25.02-blue.svg)](https://www.eiffel.org/)
 [![Design by Contract](https://img.shields.io/badge/DbC-enforced-orange.svg)]()
 [![Status](https://img.shields.io/badge/status-Phase_S2_step_1-blue.svg)]()
+![Windows: tests pass](https://img.shields.io/badge/Windows-tests%20pass-0078D6?logo=windows&logoColor=white) ![Linux and macOS: in progress](https://img.shields.io/badge/Linux%20%7C%20macOS-in%20progress-lightgrey)
 
 Turn an essay you wrote into a narrated recording you would actually publish —
 running entirely on your own machine, and refusing to call the job done on
